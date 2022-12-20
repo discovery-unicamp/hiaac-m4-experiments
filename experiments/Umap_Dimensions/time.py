@@ -17,9 +17,10 @@ from librep.utils.workflow import SimpleTrainEvalWorkflow, MultiRunWorkflow
 from librep.estimators import RandomForestClassifier, SVC, KNeighborsClassifier
 from librep.metrics.report import ClassificationReport
 
-Root = "../.."
+Root = "../../../.."
 
-dimensions_umap = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 100, 150, 180]
+dimensions_umap = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 100, 150, 200, 250, 300, 360]
+# dimensions_umap = [360]
 
 labels_activity = {
     0: "sit",
@@ -48,7 +49,8 @@ labels_dataset = {
 loader = MegaHARDataset_BalancedView20Hz(
     Root+"/data/views/AllDatasets/balanced_20Hz_filtered", 
 #     Root+"/data/views/KuHar/balanced_20Hz_motionsense_equivalent",
-    download=False)
+    download=False
+)
 train_data, test_data = loader.load(concat_train_validation=True, label="standard activity code")
 train_data, test_data
 
@@ -106,20 +108,21 @@ def create_data_multimodal(data):
 
     return data_multimodal
 
-def evaluate(dimension, dataset, train_fft, test_fft, evaluators, df, results_dict, labels_activity, metrics_class, 
+def evaluate(dimension, dataset, train, test, evaluators, df, results_dict, labels_activity, metrics_class, 
              reporter):
 # The reporter will be the same
 
-    if dimension != 180:     
+    labels = test.data["standard activity code"].unique()
+    if dimension != 360:     
         umap = UMAP(n_components=dimension, random_state=42)
-        umap.fit(train_fft[:][0])
+        umap.fit(train.data.iloc[:,1:-3])
 
         umap_transform = WindowedTransform(
             transform=umap, fit_on=None, transform_on="all"
         )
         transformer = TransformMultiModalDataset(transforms=[umap_transform], new_window_name_prefix="reduced.")
-        train_fft = transformer(train_fft)
-        test_fft = transformer(test_fft)
+        train = transformer(train)
+        test = transformer(test)
 
     for estimator, evaluator in evaluators.items():
         multi_run_experiment = MultiRunWorkflow(
@@ -127,7 +130,7 @@ def evaluate(dimension, dataset, train_fft, test_fft, evaluators, df, results_di
             num_runs=evaluator['num_runs'],
             debug=False)
 
-        results = multi_run_experiment(train_fft, test_fft)
+        results = multi_run_experiment(train, test)
         results_dict[estimator]['Umap dimension'].append(dimension)
         results_dict[estimator]['Dataset'].append(dataset)
         results_dict[estimator]['result'].append(results)
@@ -157,7 +160,6 @@ def evaluate(dimension, dataset, train_fft, test_fft, evaluators, df, results_di
             )
         )
 
-        labels = test.data['standard activity code'].unique()
         for metric in metrics_class:
             for index, activity in labels_activity.items():
                 df[f'{metric} - mean - {activity}'].append(
@@ -222,10 +224,8 @@ evaluators = {
         1
     }
 }
-start = time.time()
 
-fft_transform = FFT(centered=True)
-transformer_fft = TransformMultiModalDataset(transforms=[fft_transform], new_window_name_prefix="fft.")
+start = time.time()
 
 train_data.data['standard activity code'] = train_data.data['standard activity code'].astype('int')
 test_data.data['standard activity code'] = test_data.data['standard activity code'].astype('int')
@@ -239,12 +239,9 @@ for dataset in datasets:
     test = test_data.data[test_data.data['DataSet'].isin([dataset])]
     test = create_data_multimodal(test)
 
-    train_fft = transformer_fft(train)
-    test_fft = transformer_fft(test)
-
     new_start = time.time()
     for dimension in dimensions_umap:
-        df_results, results_dict = evaluate(dimension, dataset, train_fft, test_fft, evaluators, df_results, 
+        df_results, results_dict = evaluate(dimension, dataset, train, test, evaluators, df_results, 
                                             results_dict, labels_activity, metrics_class, reporter)
         new_end = time.time()
         print(f'Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
@@ -261,8 +258,10 @@ df_results = pd.DataFrame(df_results)
 # Save results
 import json
 
-with open('Results/results_df_umap_dimension_frequency.json', 'w') as file:
+with open('results/results_df_umap_dimension_time.json', 'w') as file:
     json.dump(df_results.to_dict(), file)
     
-with open('Results/results_dict_umap_dimension_frequency.json', 'w') as file:
+with open('results/results_dict_umap_dimension_time.json', 'w') as file:
     json.dump(results_dict, file)
+
+df_results
