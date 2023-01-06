@@ -7,7 +7,6 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Librep imports
-from librep.utils.dataset import PandasDatasetsIO          # For quick load train, test and validation CSVs
 from librep.datasets.har.loaders import (
     MegaHARDataset_BalancedView20Hz
 )
@@ -19,7 +18,7 @@ from librep.metrics.report import ClassificationReport
 
 Root = "../../../.."
 
-dimensions_umap = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 100, 150, 180]
+dimensions_umap = [i for i in range(1,181)]
 
 labels_activity = {
     0: "sit",
