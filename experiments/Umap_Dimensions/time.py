@@ -19,6 +19,7 @@ from librep.metrics.report import ClassificationReport
 Root = "../../../.."
 
 dimensions_umap = [i for i in range(1, 361)]
+print(f'Umap dimensions: {dimensions_umap}')
 # dimensions_umap = [360]
 
 labels_activity = {
@@ -243,7 +244,7 @@ for dataset in datasets:
         df_results, results_dict = evaluate(dimension, dataset, train, test, evaluators, df_results, 
                                             results_dict, labels_activity, metrics_class, reporter)
         new_end = time.time()
-        print(f'Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
+        print(f'Dataset: {dataset} \t Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
         k+=1
 
 end = time.time()

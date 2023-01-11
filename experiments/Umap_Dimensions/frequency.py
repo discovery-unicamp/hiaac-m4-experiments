@@ -246,7 +246,7 @@ for dataset in datasets:
         df_results, results_dict = evaluate(dimension, dataset, train_fft, test_fft, evaluators, df_results, 
                                             results_dict, labels_activity, metrics_class, reporter)
         new_end = time.time()
-        print(f'Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
+        print(f'Dataset: {dataset} \t Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
         k+=1
 
 end = time.time()
