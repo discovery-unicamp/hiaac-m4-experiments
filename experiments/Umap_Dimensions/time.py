@@ -240,7 +240,7 @@ if load == True:
 
     last_dataset = list(df['Dataset'].unique())[-1]
     last_dataset_id = datasets.index(last_dataset)
-    last_dimension_id = list(df['Umap dimension'].unique())[-1]
+    last_dimension_id = list(df['Umap dimension'])[-1]
 
 else:
     last_dataset = datasets[0]
@@ -260,11 +260,12 @@ for dataset in datasets[last_dataset_id:]:
     test = create_data_multimodal(test)
 
     for dimension in dimensions_umap if dataset != last_dataset else dimensions_umap[last_dimension_id:]:
+        print(f'Dataset: {dataset} \t Iteration: {k} \t Dimension: {dimension}')
         new_start = time.time()
         df_results, results_dict = evaluate(dimension, dataset, train, test, evaluators, df_results, 
                                             results_dict, labels_activity, metrics_class, reporter)
         new_end = time.time()
-        print(f'Dataset: {dataset} \t Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
+        print(f'Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds\n')
         k+=1
 
         with open('results/results_df_umap_dimension_time.json', 'w') as file:
