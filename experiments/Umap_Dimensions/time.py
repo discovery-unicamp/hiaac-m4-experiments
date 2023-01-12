@@ -3,6 +3,7 @@ import pandas as pd
 from umap import UMAP
 
 import time
+import json
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -19,8 +20,6 @@ from librep.metrics.report import ClassificationReport
 Root = "../../../.."
 
 dimensions_umap = [i for i in range(1, 361)]
-print(f'Umap dimensions: {dimensions_umap}')
-# dimensions_umap = [360]
 
 labels_activity = {
     0: "sit",
@@ -230,8 +229,29 @@ start = time.time()
 train_data.data['standard activity code'] = train_data.data['standard activity code'].astype('int')
 test_data.data['standard activity code'] = test_data.data['standard activity code'].astype('int')
 
-k=1
-for dataset in datasets:
+load = True
+if load == True:
+    with open('results/results_df_umap_dimension_time.json', 'r') as file:
+        df_results = json.load(file)
+
+    with open('results/results_dict_umap_dimension_time.json', 'r') as file:
+        results_dict = json.load(file)
+    df = pd.DataFrame(df_results)
+
+    last_dataset = list(df['Dataset'].unique())[-1]
+    last_dataset_id = datasets.index(last_dataset)
+    last_dimension_id = list(df['Umap dimension'].unique())[-1]
+
+else:
+    last_dataset = datasets[0]
+    last_dataset_id = 0
+    last_dimension_id = 0
+
+# print(last_dataset_id, last_dimension_id)
+
+k = last_dataset_id * 360 + last_dimension_id + 1
+
+for dataset in datasets[last_dataset_id:]:
 
     train = train_data.data[train_data.data['DataSet'].isin([dataset])]
     train = create_data_multimodal(train)
@@ -239,13 +259,19 @@ for dataset in datasets:
     test = test_data.data[test_data.data['DataSet'].isin([dataset])]
     test = create_data_multimodal(test)
 
-    new_start = time.time()
-    for dimension in dimensions_umap:
+    for dimension in dimensions_umap if dataset != last_dataset else dimensions_umap[last_dimension_id:]:
+        new_start = time.time()
         df_results, results_dict = evaluate(dimension, dataset, train, test, evaluators, df_results, 
                                             results_dict, labels_activity, metrics_class, reporter)
         new_end = time.time()
         print(f'Dataset: {dataset} \t Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
         k+=1
+
+        with open('results/results_df_umap_dimension_time.json', 'w') as file:
+            json.dump(df_results, file)
+
+        with open('results/results_dict_umap_dimension_time.json', 'w') as file:
+            json.dump(results_dict, file)
 
 end = time.time()
 total = int(end - start)
@@ -256,12 +282,8 @@ print(f'Time of execution: {(total // 3600) % 24} hours, {(total // 60) % 60} mi
 df_results = pd.DataFrame(df_results)
 
 # Save results
-import json
-
 with open('results/results_df_umap_dimension_time.json', 'w') as file:
     json.dump(df_results.to_dict(), file)
     
 with open('results/results_dict_umap_dimension_time.json', 'w') as file:
     json.dump(results_dict, file)
-
-df_results
