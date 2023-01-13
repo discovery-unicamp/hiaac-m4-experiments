@@ -36,7 +36,7 @@ datasets = ['KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
 classes = list(labels_activity.keys())
 
 labels_dataset = {
-    'KuHar': 'KuHar', 
+    'KuHar': 'KuHar',
     'RealWorld': 'RealWorld',
     'MotionSense': 'MotionSense',
     'ExtraSensory': 'ExtraSensory',
@@ -46,7 +46,7 @@ labels_dataset = {
 
 # Load all datasets, creating PandasMultiModalDatasets with the correct pre-defined windows
 loader = MegaHARDataset_BalancedView20Hz(
-    Root+"/data/views/AllDatasets/balanced_20Hz_filtered", 
+    Root+"/data/views/AllDatasets/balanced_20Hz_filtered",
 #     Root+"/data/views/KuHar/balanced_20Hz_motionsense_equivalent",
     download=False)
 train_data, test_data = loader.load(concat_train_validation=True, label="standard activity code")
@@ -72,8 +72,8 @@ columns, len(columns)
 df_results = {column: [] for column in columns}
 
 results_dict = {
-    'RandomForest': {}, 
-    'SVC': {}, 
+    'RandomForest': {},
+    'SVC': {},
     'KNN': {}
 }
 for classifier in results_dict.keys():
@@ -106,11 +106,11 @@ def create_data_multimodal(data):
 
     return data_multimodal
 
-def evaluate(dimension, dataset, train_fft, test_fft, evaluators, df, results_dict, labels_activity, metrics_class, 
+def evaluate(dimension, dataset, train_fft, test_fft, evaluators, df, results_dict, labels_activity, metrics_class,
              reporter):
 # The reporter will be the same
 
-    if dimension != 180:     
+    if dimension != 180:
         umap = UMAP(n_components=dimension, random_state=42)
         umap.fit(train_fft[:][0])
 
@@ -123,7 +123,7 @@ def evaluate(dimension, dataset, train_fft, test_fft, evaluators, df, results_di
 
     for estimator, evaluator in evaluators.items():
         multi_run_experiment = MultiRunWorkflow(
-            workflow=evaluator['experiment'], 
+            workflow=evaluator['experiment'],
             num_runs=evaluator['num_runs'],
             debug=False)
 
@@ -188,10 +188,10 @@ evaluators = {
     {
         'experiment':
         SimpleTrainEvalWorkflow(
-            estimator=RandomForestClassifier, 
-            estimator_creation_kwags ={'n_estimators':100}, 
-            do_not_instantiate=False, 
-            do_fit=True, 
+            estimator=RandomForestClassifier,
+            estimator_creation_kwags ={'n_estimators':100},
+            do_not_instantiate=False,
+            do_fit=True,
             evaluator=reporter),
         'num_runs':
         10
@@ -201,10 +201,10 @@ evaluators = {
     {
         'experiment':
         SimpleTrainEvalWorkflow(
-            estimator=SVC, 
-            estimator_creation_kwags ={'C':3.0, 'kernel':"rbf"} , 
-            do_not_instantiate=False, 
-            do_fit=True, 
+            estimator=SVC,
+            estimator_creation_kwags ={'C':3.0, 'kernel':"rbf"} ,
+            do_not_instantiate=False,
+            do_fit=True,
             evaluator=reporter),
         'num_runs':
         1
@@ -213,10 +213,10 @@ evaluators = {
     {
         'experiment':
         SimpleTrainEvalWorkflow(
-            estimator=KNeighborsClassifier, 
-            estimator_creation_kwags={'n_neighbors' :1}, 
-            do_not_instantiate=False, 
-            do_fit=True, 
+            estimator=KNeighborsClassifier,
+            estimator_creation_kwags={'n_neighbors' :1},
+            do_not_instantiate=False,
+            do_fit=True,
             evaluator=reporter),
         'num_runs':
         1
@@ -244,7 +244,7 @@ for dataset in datasets:
 
     new_start = time.time()
     for dimension in dimensions_umap:
-        df_results, results_dict = evaluate(dimension, dataset, train_fft, test_fft, evaluators, df_results, 
+        df_results, results_dict = evaluate(dimension, dataset, train_fft, test_fft, evaluators, df_results,
                                             results_dict, labels_activity, metrics_class, reporter)
         new_end = time.time()
         print(f'Iteration: {k} \t Time of execution: {int(new_end - new_start) // 60} minutes and {int(new_end - new_start) % 60} seconds')
@@ -263,6 +263,6 @@ import json
 
 with open('results/results_df_umap_dimension_frequency.json', 'w') as file:
     json.dump(df_results.to_dict(), file)
-    
+
 with open('results/results_dict_umap_dimension_frequency.json', 'w') as file:
     json.dump(results_dict, file)
