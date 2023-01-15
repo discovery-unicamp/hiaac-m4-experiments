@@ -234,12 +234,13 @@ if __name__ == "__main__":
         required=True
     )
 
+    parser.add_argument()
+
     args = parser.parse_args()
 
 
     experiments = load_yaml(args.experiment_file)
     experiments = [from_dict(data_class=ExecutionConfig, data=e) for e in experiments]
-
 
     start = time.time()
 
@@ -252,14 +253,14 @@ if __name__ == "__main__":
     #     results.append(result)
 
 
-    size=10
     random.shuffle(experiments)
+    size=len(experiments)
 
     ray.init(args.address)
     print("Execution start...")
     pool = Pool()
     iterator = pool.imap_unordered(
-        run, [(args.data_path, args.output_path, e) for e in experiments[:size]], chunksize=4
+        run, [(args.data_path, args.output_path, e) for e in experiments[:size]], #chunksize=8
     )
     list(tqdm.tqdm(iterator, total=size))
     print(results)
