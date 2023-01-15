@@ -1,1 +1,1 @@
-python builder.py ./configs.yaml -o executions.yaml
+python builder.py ./configs.yaml -o executions_fft_only.yaml

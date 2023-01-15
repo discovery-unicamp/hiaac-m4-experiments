@@ -153,11 +153,11 @@ def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[Trans
                 transforms=transform_config_list,
                 estimator=estimator_config
             )
-            print(experiment)
-            print("-----")
+            # print(experiment)
+            # print("-----")
             count += 1
             executions.append(experiment)
-        return executions
+    return executions
 
 
 if __name__ == "__main__":
