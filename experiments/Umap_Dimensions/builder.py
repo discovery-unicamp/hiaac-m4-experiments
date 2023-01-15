@@ -4,6 +4,7 @@ import json
 import time
 import uuid
 import yaml
+from itertools import combinations, product
 
 from itertools import product
 from dataclasses import dataclass, asdict
@@ -35,6 +36,33 @@ datasets_cls = [
     "realworld",
     "extrasensory"
 ]
+
+
+train_datasets = [
+    "kuhar",
+    "motionsense",
+    "wisdm",
+    "realworld",
+]
+
+test_datasets = [
+    "kuhar",
+    "motionsense",
+    "wisdm",
+    "uci",
+    "realworld",
+    "extrasensory"
+]
+
+reducer_datasets = [
+    "kuhar",
+    "motionsense",
+    "wisdm",
+    "uci",
+    "realworld",
+    "extrasensory"
+]
+
 
 
 def load_yaml(path: Union[Path, str]) -> dict:
@@ -107,23 +135,29 @@ def parse_configs(config_file: Path):
 
 def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[TransformConfig], estimators: List[EstimatorConfig], experiment_name: str, runs:int):
     executions = []
-    for i, (reducer_config, transform_config_list, estimator_config, dataset) in enumerate(product(reducers, transforms, estimators, datasets_cls)):
-        experiment = ExecutionConfig(
-            execution_id=str(i),
-            experiment_name=experiment_name,
-            run_id=1,
-            number_runs=runs,
-            reducer_dataset=[dataset],
-            train_dataset=[dataset],
-            test_dataset=[dataset],
-            reducer=reducer_config,
-            transforms=transform_config_list,
-            estimator=estimator_config
-        )
-        print(experiment)
-        print("-----")
-        executions.append(experiment)
-    return executions
+    count = 0
+    for i, (reducer_config, transform_config_list, estimator_config) in enumerate(product(reducers, transforms, estimators)):
+        trains = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2))
+        tests = list(combinations(test_datasets, r=1)) + list(combinations(test_datasets, r=2))
+        reducers = list(combinations(reducer_datasets, r=1)) + list(combinations(reducer_datasets, r=2))
+        for j, (_train_datasets, _test_datasets, _reducer_datasets) in enumerate(product(trains, tests, reducers)):
+            experiment = ExecutionConfig(
+                execution_id=f"{count}",
+                experiment_name=experiment_name,
+                run_id=1,
+                number_runs=runs,
+                reducer_dataset=list(_reducer_datasets),
+                train_dataset=list(_train_datasets),
+                test_dataset=list(_test_datasets),
+                reducer=reducer_config,
+                transforms=transform_config_list,
+                estimator=estimator_config
+            )
+            print(experiment)
+            print("-----")
+            count += 1
+            executions.append(experiment)
+        return executions
 
 
 if __name__ == "__main__":
