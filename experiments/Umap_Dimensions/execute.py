@@ -47,16 +47,17 @@ def load_yaml(path: Union[Path, str]) -> dict:
     with path.open("r") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
-def load_mega(data_dir: Path, datasets: List[str] = None, concat_train_validation: bool = True, label_columns: str = "standard activity code", features: List[str] = None):
+def load_mega(data_dir: Path, train_datasets: List[str] = None, test_datasets: List[str] = None, concat_train_validation: bool = True, label_columns: str = "standard activity code", features: List[str] = None):
     mega_dset = MegaHARDataset_BalancedView20Hz(data_dir, download=False)
     train_data, test_data = mega_dset.load(concat_train_validation=concat_train_validation, label=label_columns, features=features)
 
     train_data.data.DataSet = train_data.data.DataSet.str.lower()
     test_data.data.DataSet = test_data.data.DataSet.str.lower()
 
-    if datasets is not None:
-        train_data.data = train_data.data.loc[train_data.data["DataSet"].isin(datasets)]
-        test_data.data = test_data.data.loc[test_data.data["DataSet"].isin(datasets)]
+    if train_datasets is not None:
+        train_data.data = train_data.data.loc[train_data.data["DataSet"].isin(train_datasets)]
+    if test_datasets is not None:
+        test_data.data = test_data.data.loc[test_data.data["DataSet"].isin(test_datasets)]
 
     train_data.data['standard activity code'] = train_data.data['standard activity code'].astype('int')
     test_data.data['standard activity code'] = test_data.data['standard activity code'].astype('int')
@@ -109,7 +110,8 @@ def _run(root_data_dir: str, output_dir: str, config: ExecutionConfig):
         # print(f"Running: {config}...")
         train_dset, test_dset = load_mega(
             root_data_dir,
-            datasets=config.train_dataset, #datasets=config.dataset.datasets,
+            train_datasets=config.train_dataset,
+            test_datasets=config.test_datasets,
             concat_train_validation=True, #config.dataset.concat_train_validation,
             #label_columns=config.dataset.label_columns
         )

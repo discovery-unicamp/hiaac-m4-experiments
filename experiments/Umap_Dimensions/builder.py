@@ -137,9 +137,9 @@ def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[Trans
     executions = []
     count = 0
     for i, (reducer_config, transform_config_list, estimator_config) in enumerate(product(reducers, transforms, estimators)):
-        trains = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2))
-        tests = list(combinations(test_datasets, r=1)) + list(combinations(test_datasets, r=2))
-        reducers = list(combinations(reducer_datasets, r=1)) + list(combinations(reducer_datasets, r=2))
+        trains = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) + list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4))
+        tests = list(combinations(test_datasets, r=1))
+        reducers = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) + list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4)) + list(combinations(train_datasets, r=5))
         for j, (_train_datasets, _test_datasets, _reducer_datasets) in enumerate(product(trains, tests, reducers)):
             experiment = ExecutionConfig(
                 execution_id=f"{count}",
