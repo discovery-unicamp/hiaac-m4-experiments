@@ -17,8 +17,6 @@ import pandas as pd
 from umap import UMAP
 import ray
 from ray.util.multiprocessing import Pool
-import dask
-from dask.distributed import Client, as_completed
 
 # Librep imports
 from librep.base.transform import Transform
@@ -271,6 +269,7 @@ if __name__ == "__main__":
     #     results.append(result)
 
 
+    size=len(experiments)
     # random.shuffle(experiments)
     ray.init(args.address)
     print("Execution start...")
