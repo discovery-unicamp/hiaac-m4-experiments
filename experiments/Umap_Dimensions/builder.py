@@ -133,25 +133,31 @@ def parse_configs(config_file: Path):
     return reducers, transforms, estimators
 
 
-def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[TransformConfig], estimators: List[EstimatorConfig], experiment_name: str, runs:int):
+def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[TransformConfig], estimators: List[EstimatorConfig], runs:int):
     executions = []
     count = 0
     for i, (reducer_config, transform_config_list, estimator_config) in enumerate(product(reducers, transforms, estimators)):
-        trains = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) + list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4))
+        trains = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) #+ list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4))
         tests = list(combinations(test_datasets, r=1))
-        reducers = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) + list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4)) + list(combinations(train_datasets, r=5))
-        for j, (_train_datasets, _test_datasets, _reducer_datasets) in enumerate(product(trains, tests, reducers)):
+        reducers = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) #+ list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4)) + list(combinations(train_datasets, r=5))
+        in_use_features = [
+            ["accel-x", "accel-y", "accel-z", "gyro-x", "gyro-y", "gyro-z"],
+            ["accel-x", "accel-y", "accel-z"],
+            ["gyro-x", "gyro-y", "gyro-z"]
+        ]
+        reduce_on = ["all", ]#"sensor", "axis"]
+
+        for j, (_train_datasets, _test_datasets, _reducer_datasets, _in_use_feat, _reduce_on) in enumerate(product(trains, tests, reducers, in_use_features, reduce_on)):
             experiment = ExecutionConfig(
                 execution_id=f"{count}",
-                experiment_name=experiment_name,
-                run_id=1,
                 number_runs=runs,
                 reducer_dataset=list(_reducer_datasets),
                 train_dataset=list(_train_datasets),
                 test_dataset=list(_test_datasets),
                 reducer=reducer_config,
                 transforms=transform_config_list,
-                estimator=estimator_config
+                estimator=estimator_config,
+                extra=ExtraConfig(_in_use_feat, _reduce_on)
             )
             # print(experiment)
             # print("-----")
@@ -215,11 +221,11 @@ if __name__ == "__main__":
     print(args)
 
     reducers, transforms, estimators = parse_configs(args.config_file)
-    executions = build_experiments_grid(reducers, transforms, estimators, args.experiment, args.number_runs)
+    executions = build_experiments_grid(reducers, transforms, estimators, args.number_runs)
     print(f"There are {len(executions)} experiments!")
 
     with open(args.output, "w") as f:
-        yaml.dump([asdict(e) for e in executions], f)
+        yaml.dump([asdict(e) for e in executions], f, encoding='utf-8', default_flow_style=False, Dumper=yaml.CDumper)
     print(f"Configs saved to {args.output}")
     # executions = [asdict(e) for e in executions]
 

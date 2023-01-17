@@ -40,11 +40,14 @@ class EstimatorConfig:
     allow_multirun: bool
 
 @dataclass
+class ExtraConfig:
+    in_use_features: list
+    reduce_on: str # valid values: all, sensor, axis
+
+@dataclass
 class ExecutionConfig:
     # Control variables
     execution_id: str
-    experiment_name: str
-    run_id: int
     number_runs: int
     # Dataset
     reducer_dataset: list # List[DatasetConfig]
@@ -56,6 +59,8 @@ class ExecutionConfig:
     transforms: list # List[TransformConfig]
     # Estimator
     estimator: EstimatorConfig
+    # Extra
+    extra: ExtraConfig
 
 
 ################################################################################
