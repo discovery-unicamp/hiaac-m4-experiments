@@ -313,12 +313,14 @@ if __name__ == "__main__":
     ray.init(args.address)
     print("Execution start...")
     pool = Pool()
-    iterator = pool.imap_unordered(
-        run, [(args.data_path, args.output_path, args.exp_name, e) for e in experiments],
-        chunksize=args.chunk_size
-    )
-    list(tqdm.tqdm(iterator, total=size))
-    print(iterator)
+    if args.chunk_size is not None:
+        iterator = pool.imap_unordered(
+            run, [(args.data_path, args.output_path, args.exp_name, e) for e in experiments],
+            chunksize=args.chunk_size
+        )
+    else:
+        iterator = pool.imap_unordered(
+            run, [(args.data_path, args.output_path, args.exp_name, e) for e in experiments],
+        )
+    final_res = list(tqdm.tqdm(iterator, total=size))
     print(f"Finished! It took {time.time()-start:.3f} seconds!")
-
-    print(f"Finished ")
