@@ -118,13 +118,13 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
         datasets=config.test_dataset,
         features=features
     )
-    additional_info["test_size"] = len(train_dset)
+    additional_info["test_size"] = len(test_dset)
     reducer_dset = load_mega(
         root_data_dir,
         datasets=config.reducer_dataset,
         features=features
     )
-    additional_info["reduce_size"] = len(train_dset)
+    additional_info["reduce_size"] = len(reducer_dset)
     additional_info["load_time"] = time.time()-load_time
 
 
