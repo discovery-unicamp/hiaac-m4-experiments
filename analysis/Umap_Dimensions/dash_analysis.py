@@ -3,7 +3,7 @@ import pandas as pd
 import json 
 import plotly.express as px
 from plotly.subplots import make_subplots
-from pyngrok import ngrok
+# from pyngrok import ngrok
 
 from dash import Dash, dcc, html, Input, Output, State, callback_context
 # import dash_table
