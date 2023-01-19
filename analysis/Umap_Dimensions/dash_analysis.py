@@ -20,7 +20,6 @@ app = Dash(__name__, external_stylesheets=external_stylesheets)
 
 datasets = ['All', 'KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
 # datasets = ['KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
-
 classifiers = [
     'All',
     'RandomForest',
@@ -53,6 +52,13 @@ features = [
     'f1-score - mean - stair up and down',
 ]
 domains = ['Time', 'Frequency']
+lost_results = {
+    "Classifier":[],
+    "Metric": [],
+    "DataSet": [],
+    "Best UMAP dimension": [],
+    "Lost %": []
+}
 losts = [i*0.01 for i in range(21)]
 
 def generate_fig(result_filtered, dataset, metric, domain):
@@ -110,7 +116,6 @@ def generate_fig(result_filtered, dataset, metric, domain):
     return fig
 
 # Create the application
-
 app.layout = html.Div([
     html.H1('Umap Results Analysis'),
     html.H6('This dashboord is responsible to show results from umap dimensions results. The experients is based in reduce the dimenson data with Umap from time and frequency domain from 5 diferents datasets (KuHar, RealWorld, MotionSense, WISDM, and UCI) and find the lowest dimension that we can reduce the data and lost the minimun of classifier\' perfomance. The chart below represent a resume from results and you can select some parameters selecting the options below.'),
@@ -143,6 +148,18 @@ app.layout = html.Div([
     ),
     dcc.Graph(id="graph"),
 
+    html.H4('Lost: '),
+    dcc.Dropdown(id="lost", options=losts, value='0'),
+
+    # dash_table.DataTable(
+    #     id='data-table',
+    #     columns=[
+    #         {'name': f'{column}', 'id': f'{column}'}
+    #         for column in lost_results.kewys()
+    #     ],
+    #     data=[{'input-data': i} for i in range(11)],
+    #     editable=True,
+    # ),
 ])
 
 @app.callback(
@@ -176,6 +193,39 @@ def update_chart(metric, domain, classifier, dataset):
     fig = generate_fig(result_filtered, dataset, metric, domain)
 
     return fig
+
+# @app.callback(
+#     Output("data-table", "data"),
+#     Input("metric", "value"),
+#     Input("domain", "value"),
+#     Input("classifier", "value"),
+#     Input("dataset", "value"),
+#     Input("lost", "value")
+# )
+
+# def update_table(metric, domain, classifier, dataset, lost):
+
+#     if domain == 'Time':
+#         Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
+#         max_x = 360
+#         step = 5
+
+#     elif domain == 'Frequency':
+#         Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_frequency.json' 
+#         max_x = 180
+#         step = 2
+
+#     with open(Root, 'r') as f:
+#         result_load = json.load(f)
+    
+#     result = pd.DataFrame(result_load)
+#     if classifier != 'All':
+#         result = result.loc[result['Classifier'] == classifier]
+#     result_filtered = result[features]
+
+#     fig = generate_fig(result_filtered, dataset, metric, domain)
+
+#     return fig
  
 if __name__ == '__main__':
     app.run_server(port=8050, debug=True, use_reloader=True)
