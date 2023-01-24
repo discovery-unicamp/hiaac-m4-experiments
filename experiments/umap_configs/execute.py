@@ -1,5 +1,6 @@
 # Python imports
 import argparse
+import logging
 import json
 import time
 import uuid
@@ -32,6 +33,9 @@ from config import *
 
 import random
 import tqdm
+
+import warnings
+warnings.filterwarnings('always')
 
 labels_activity = {
     0: "sit",
@@ -307,7 +311,7 @@ if __name__ == "__main__":
     # print(f"There are {len(experiments)} experiments")
 
     start = time.time()
-    ray.init(args.address)
+    ray.init(args.address, logging_level=logging.ERROR)
     print("Execution start...")
 
     pool = Pool()
