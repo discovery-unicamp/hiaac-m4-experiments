@@ -184,7 +184,7 @@ if __name__ == "__main__":
         "-o",
         "--output",
         action="store",
-        help="Output file to store configs",
+        help="Output directory to store configs",
         type=str,
         required=True
     )
@@ -224,27 +224,11 @@ if __name__ == "__main__":
     executions = build_experiments_grid(reducers, transforms, estimators, args.number_runs)
     print(f"There are {len(executions)} experiments!")
 
-    with open(args.output, "w") as f:
-        yaml.dump([asdict(e) for e in executions], f, encoding='utf-8', default_flow_style=False, Dumper=yaml.CDumper)
-    print(f"Configs saved to {args.output}")
-    # executions = [asdict(e) for e in executions]
+    output_path = Path(args.output)
+    output_path.mkdir(parents=True, exist_ok=True)
+    for e in executions:
+        output_file = output_path / (str(e.execution_id) + ".yaml")
+        with output_file.open("w") as f:
+            yaml.dump(asdict(e), f, encoding='utf-8', default_flow_style=False, Dumper=yaml.CDumper)
 
-    # executions = []
-    # for i, (reducer_config, transform_config_list, estimator_config, dataset) in enumerate(product(reducers, transforms, estimators, datasets_cls)):
-    #     experiment = ExecutionConfig(
-    #         execution_id=str(i),
-    #         experiment_name=args.experiment,
-    #         run_id=1,
-    #         number_runs=args.number_runs,
-    #         reducer_dataset=dataset,
-    #         train_dataset=dataset,
-    #         test_dataset=dataset,
-    #         reducer=reducer_config,
-    #         transforms=transform_config_list,
-    #         estimator=estimator_config
-    #     )
-    #     print(experiment)
-    #     print("-----")
-    #     executions.append(experiment)
-    #
-    # print(f"There are {len(executions)} experiments!")
+    print(f"Configs saved to {output_path}")
