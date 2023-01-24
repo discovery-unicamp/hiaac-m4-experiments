@@ -174,7 +174,7 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
 
     # print("Saving...")
     # Create output directory
-    output_file = output_dir / experiment_name / f"{config.execution_id}.yaml"
+    output_file = output_dir / f"{config.execution_id}.yaml"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     values = {
         "experiment": asdict(config),
@@ -191,19 +191,22 @@ def run(args):
     root_data_dir: str = args[0]
     output_dir: str = args[1]
     experiment_name = args[2]
-    config: ExecutionConfig = args[3]
+    file: Path = args[3]
 
     start = time.time()
     try:
+        config = from_dict(data_class=ExecutionConfig, data=load_yaml(file))
         result = _run(root_data_dir, output_dir, experiment_name, config)
         result["exception"] = None
+        result["ok"] = True
     except Exception as e:
         print(traceback.format_exc())
         result = {
             "experiment": asdict(config),
             "results": None,
             "exception": str(e),
-            "additional": dict()
+            "additional": dict(),
+            "ok": False
         }
     finally:
         result["additional"]["full_time"] = time.time()-start
@@ -221,17 +224,17 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "experiment_file",
+        "execution_configs_dir",
         action="store",
-        help="Experiment file",
+        help="Directory with execution configs",
         type=str
     )
 
     parser.add_argument(
         "--exp-name",
         action="store",
-        default="A simple experiment",
-        help="Experiment file",
+        default="experiment",
+        help="Description of the experiment",
         type=str
     )
 
@@ -263,64 +266,53 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--start",
-        default=None,
-        help="Start at config no..",
-        type=int,
-        required=False
+        "--skip-existing",
+        action="store_true",
+        help="Skip executions that were already run"
     )
 
-    parser.add_argument(
-        "--end",
-        default=None,
-        help="End at config no..",
-        type=int,
-        required=False
-    )
+    # parser.add_argument(
+    #     "--start",
+    #     default=None,
+    #     help="Start at execution config no..",
+    #     type=int,
+    #     required=False
+    # )
 
-    parser.add_argument(
-        "--chunk-size",
-        default=None,
-        help="Size of the multiprocessing pool",
-        type=int,
-        required=False
-    )
+    # parser.add_argument(
+    #     "--end",
+    #     default=None,
+    #     help="End at execution config no..",
+    #     type=int,
+    #     required=False
+    # )
 
     args = parser.parse_args()
+    print(args)
+
+    output_path = Path(args.output_path) / args.exp_name
+    execution_configs = list(Path(args.execution_configs_dir).glob("*.yaml"))
+
+    if args.skip_existing:
+        to_keep_execution_ids = set([e.stem for e in execution_configs]).difference(set([o.stem for o in output_path.glob("*.yaml")]))
+        execution_configs = [e for e in execution_configs if e.stem in to_keep_execution_ids]
 
 
-    experiments = load_yaml(args.experiment_file)
-    experiments = [from_dict(data_class=ExecutionConfig, data=e) for e in experiments]
+    # experiments = load_yaml(args.experiment_file)
+    # experiments = [from_dict(data_class=ExecutionConfig, data=e) for e in experiments]
 
-    exp_from = args.start or 0
-    exp_to = args.end or len(experiments)
-    experiments = experiments[exp_from:exp_to]
-    print(f"There are {len(experiments)} experiments")
+    # exp_from = args.start or 0
+    # exp_to = args.end or len(experiments)
+    # experiments = experiments[exp_from:exp_to]
+    # print(f"There are {len(experiments)} experiments")
 
     start = time.time()
-
-    # client = Client("tcp://192.168.15.97:8786")
-    # futures = client.map(run, [(args.data_path, args.output_path, e) for e in experiments[:100]])
-    # results = []
-    # for future, result in as_completed(futures, with_results=True):
-    #     print(f"{result}\n")
-    #     print("-----------------------")
-    #     results.append(result)
-
-
-    size=len(experiments)
-    # random.shuffle(experiments)
     ray.init(args.address)
     print("Execution start...")
+
     pool = Pool()
-    if args.chunk_size is not None:
-        iterator = pool.imap_unordered(
-            run, [(args.data_path, args.output_path, args.exp_name, e) for e in experiments],
-            chunksize=args.chunk_size
-        )
-    else:
-        iterator = pool.imap_unordered(
-            run, [(args.data_path, args.output_path, args.exp_name, e) for e in experiments],
-        )
-    final_res = list(tqdm.tqdm(iterator, total=size))
+    iterator = pool.imap_unordered(
+        run, [(args.data_path, output_path, args.exp_name, e) for e in execution_configs],
+    )
+    final_res = list(tqdm.tqdm(iterator, total=len(execution_configs)))
     print(f"Finished! It took {time.time()-start:.3f} seconds!")

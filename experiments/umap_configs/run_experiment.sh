@@ -1,1 +1,3 @@
-python execute.py executions_2.yaml -d "/home/otavio/hiaac/balanced_20Hz_filtered" -o "./config2_results" 
+DATADIR="data"
+
+python execute.py executions_config2 -d "${DATADIR}" -o "./executions_config2_results" --skip-existing 
