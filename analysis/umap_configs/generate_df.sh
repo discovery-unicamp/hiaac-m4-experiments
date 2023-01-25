@@ -1,1 +1,1 @@
-python generate_df.py "../../experiments/Umap_Dimensions/config2_results/A simple experiment" -o results.csv
+python generate_df.py "../../experiments/umap_configs/executions_config2_results/experiment/" -o results.csv

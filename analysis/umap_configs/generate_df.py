@@ -42,7 +42,8 @@ def main(results_dir: Path, output: Path):
             "number runs": result["experiment"]["number_runs"],
             "reducer_datasets": ", ".join(result["experiment"]["reducer_dataset"]),
             "train_datasets": ", ".join(result["experiment"]["train_dataset"]),
-            "test_datasets": ", ".join(result["experiment"]["test_dataset"])
+            "test_datasets": ", ".join(result["experiment"]["test_dataset"]),
+            "sensors used": ", ".join(result["experiment"]["extra"]["in_use_features"])
         }
 
         n_components = 0
@@ -72,7 +73,7 @@ def main(results_dir: Path, output: Path):
 
     print("Generating Dataframe...")
     results = pd.DataFrame(results)
-    results.to_csv(output)
+    results.to_csv(output, index=False)
     print(f"Results saved to {output}")
 
 if __name__ == "__main__":
