@@ -5,16 +5,20 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 # from pyngrok import ngrok
 
-from dash import Dash, dcc, html, Input, Output, State, callback_context
-# import dash_table
+from dash import Dash, dcc, html, dash_table
+from dash.dependencies import Input, Output, State
+
 # import dash_core_components as dash_core
 # import dash_html_components as dash_html
-# from dash.dependencies import Input, Output
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = Dash(__name__, external_stylesheets=external_stylesheets)
-# 
+
+df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/gapminder2007.csv')
+
+df['id'] = df['country']
+df.set_index('id', inplace=True, drop=False)
 
 # Inicialize some variables
 
@@ -148,18 +152,8 @@ app.layout = html.Div([
     ),
     dcc.Graph(id="graph"),
 
-    html.H4('Lost: '),
-    dcc.Dropdown(id="lost", options=losts, value='0'),
-
-    # dash_table.DataTable(
-    #     id='data-table',
-    #     columns=[
-    #         {'name': f'{column}', 'id': f'{column}'}
-    #         for column in lost_results.kewys()
-    #     ],
-    #     data=[{'input-data': i} for i in range(11)],
-    #     editable=True,
-    # ),
+    # Create the table   
+    dash_table.DataTable(id="table")
 ])
 
 @app.callback(
@@ -194,38 +188,35 @@ def update_chart(metric, domain, classifier, dataset):
 
     return fig
 
-# @app.callback(
-#     Output("data-table", "data"),
-#     Input("metric", "value"),
-#     Input("domain", "value"),
-#     Input("classifier", "value"),
-#     Input("dataset", "value"),
-#     Input("lost", "value")
-# )
+@app.callback(
+    Output("table", "data"),
+    Input("metric", "value"),
+    Input("domain", "value"),
+    Input("classifier", "value"),
+    Input("dataset", "value")
+)
 
-# def update_table(metric, domain, classifier, dataset, lost):
+def update_table(metric, domain, classifier, dataset):
 
-#     if domain == 'Time':
-#         Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
-#         max_x = 360
-#         step = 5
+    if domain == 'Time':
+        Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
+        max_x = 360
+        step = 5
 
-#     elif domain == 'Frequency':
-#         Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_frequency.json' 
-#         max_x = 180
-#         step = 2
+    elif domain == 'Frequency':
+        Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_frequency.json' 
+        max_x = 180
+        step = 2
 
-#     with open(Root, 'r') as f:
-#         result_load = json.load(f)
+    with open(Root, 'r') as f:
+        result_load = json.load(f)
     
-#     result = pd.DataFrame(result_load)
-#     if classifier != 'All':
-#         result = result.loc[result['Classifier'] == classifier]
-#     result_filtered = result[features]
+    result = pd.DataFrame(result_load)
+    if classifier != 'All':
+        result = result.loc[result['Classifier'] == classifier]
+    # result_filtered = result[features]
 
-#     fig = generate_fig(result_filtered, dataset, metric, domain)
-
-#     return fig
- 
+    return result
+    
 if __name__ == '__main__':
     app.run_server(port=8050, debug=True, use_reloader=True)
