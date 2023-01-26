@@ -6,6 +6,7 @@ from plotly.subplots import make_subplots
 # from pyngrok import ngrok
 
 from dash import Dash, dcc, html, Input, Output, State, callback_context
+from dash import dash_table
 # import dash_table
 # import dash_core_components as dash_core
 # import dash_html_components as dash_html
@@ -64,7 +65,7 @@ def generate_fig(result_filtered, dataset, metric, domain):
 
     elif domain == 'Frequency':
         max_x = 180
-        step = 2
+        step = 1
 
     fig = make_subplots(rows=1, cols=1)
 
@@ -110,6 +111,10 @@ def generate_fig(result_filtered, dataset, metric, domain):
     return fig
 
 # Create the application
+params = [
+    'Weight', 'Torque', 'Width', 'Height',
+    'Efficiency', 'Power', 'Displacement'
+]
 
 app.layout = html.Div([
     html.H1('Umap Results Analysis'),
@@ -142,11 +147,21 @@ app.layout = html.Div([
         value="All"
     ),
     dcc.Graph(id="graph"),
-
+    dash_table.DataTable(
+        id='table-info',
+        columns=(
+            [{'id': p, 'name': p} for p in features]
+        ),
+        data=[
+            # dict(Model=i, **{param: 0 for param in params}) for i in range(1, 5)
+        ],
+        editable=True
+    )
 ])
 
 @app.callback(
     Output("graph", "figure"),
+    Output("table-info", "data"),
     Input("metric", "value"),
     Input("domain", "value"),
     Input("classifier", "value"),
@@ -156,12 +171,14 @@ app.layout = html.Div([
 def update_chart(metric, domain, classifier, dataset):
 
     if domain == 'Time':
-        Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
+        # Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
+        Root = '/home/ic-unicamp/Documentos/GITHUB/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
         max_x = 360
         step = 5
 
     elif domain == 'Frequency':
-        Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_frequency.json' 
+        # Root = '/home/patrick/Documents/Repositories/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_frequency.json' 
+        Root = '/home/ic-unicamp/Documentos/GITHUB/hiaac-m4-experiments/experiments/Umap_Dimensions/results/results_df_umap_dimension_frequency.json' 
         max_x = 180
         step = 2
 
@@ -172,10 +189,20 @@ def update_chart(metric, domain, classifier, dataset):
     if classifier != 'All':
         result = result.loc[result['Classifier'] == classifier]
     result_filtered = result[features]
-
+    print(result_filtered)
+    # print([col for col in result_filtered.columns])
     fig = generate_fig(result_filtered, dataset, metric, domain)
-
-    return fig
+    
+    filter_for_table = result_filtered
+    if dataset != 'All':
+        filter_for_table = filter_for_table[filter_for_table['Dataset'] == dataset]
+    data = []
+    for row_tuple in filter_for_table.itertuples(index=False, name=None):
+        obj = {}
+        for feature_index in range(len(features)):
+            obj[features[feature_index]] = row_tuple[feature_index]
+        data.append(obj)
+    return fig, data
  
 if __name__ == '__main__':
     app.run_server(port=8050, debug=True, use_reloader=True)
