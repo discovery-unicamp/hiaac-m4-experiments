@@ -5,7 +5,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 # from pyngrok import ngrok
 
-from dash import Dash, dcc, html, Input, Output, State, callback_context
+from dash import dash_table, Dash, dcc, html, Input, Output, State, callback_context
 from dash.dependencies import Input, Output, State
 
 # import dash_core_components as dash_core
