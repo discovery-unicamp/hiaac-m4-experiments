@@ -6,22 +6,24 @@ from plotly.subplots import make_subplots
 # from pyngrok import ngrok
 
 from dash import Dash, dcc, html, Input, Output, State, callback_context
-from dash import dash_table
-# import dash_table
+from dash.dependencies import Input, Output, State
+
 # import dash_core_components as dash_core
 # import dash_html_components as dash_html
-# from dash.dependencies import Input, Output
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = Dash(__name__, external_stylesheets=external_stylesheets)
-# 
+
+df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/gapminder2007.csv')
+
+df['id'] = df['country']
+df.set_index('id', inplace=True, drop=False)
 
 # Inicialize some variables
 
 datasets = ['All', 'KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
 # datasets = ['KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
-
 classifiers = [
     'All',
     'RandomForest',
@@ -54,6 +56,13 @@ features = [
     'f1-score - mean - stair up and down',
 ]
 domains = ['Time', 'Frequency']
+lost_results = {
+    "Classifier":[],
+    "Metric": [],
+    "DataSet": [],
+    "Best UMAP dimension": [],
+    "Lost %": []
+}
 losts = [i*0.01 for i in range(21)]
 
 def generate_fig(result_filtered, dataset, metric, domain):
@@ -111,11 +120,6 @@ def generate_fig(result_filtered, dataset, metric, domain):
     return fig
 
 # Create the application
-params = [
-    'Weight', 'Torque', 'Width', 'Height',
-    'Efficiency', 'Power', 'Displacement'
-]
-
 app.layout = html.Div([
     html.H1('Umap Results Analysis'),
     html.H6('This dashboord is responsible to show results from umap dimensions results. The experients is based in reduce the dimenson data with Umap from time and frequency domain from 5 diferents datasets (KuHar, RealWorld, MotionSense, WISDM, and UCI) and find the lowest dimension that we can reduce the data and lost the minimun of classifier\' perfomance. The chart below represent a resume from results and you can select some parameters selecting the options below.'),
