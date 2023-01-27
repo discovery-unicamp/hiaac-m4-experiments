@@ -1,0 +1,1 @@
+python3 execute.py test.yaml -d /home/patrick/Downloads/balanced_20Hz_filtered --address='192.168.15.71:6379' -o "results"

@@ -22,7 +22,7 @@ df.set_index('id', inplace=True, drop=False)
 
 # Inicialize some variables
 
-datasets = ['All', 'KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
+datasets = ['KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
 # datasets = ['KuHar', 'RealWorld', 'MotionSense', 'WISDM', 'UCI']
 classifiers = [
     'All',
@@ -77,9 +77,9 @@ lost_results = {
 }
 def analysis(domain, result_df, metric):
     if domain == 'Time':
-        end = 360
+        end = 10
     elif(domain == 'Frequency'):
-        end = 180
+        end = 10
     else:
         print('Error')
         return
@@ -115,44 +115,21 @@ def analysis(domain, result_df, metric):
 def generate_fig(result_filtered, dataset, metric, domain):
 
     min_x = 1
-    if domain == 'Time':
-        max_x = 360
-        step = 5
-
-    elif domain == 'Frequency':
-        max_x = 180
-        step = 1
+    max_x = list(result_filtered['Umap dimension'].unique())[-1]
 
     fig = make_subplots(rows=1, cols=1)
 
-    if dataset == 'All':
-        result = result_filtered.loc[result_filtered['Umap dimension'] % step == 0]
-        result = pd.concat([result_filtered.loc[result_filtered['Umap dimension'] == 1], result])
+    result = result_filtered.loc[result_filtered['Dataset'] == dataset]
 
-        fig = px.line(
-            result, 
-            x="Umap dimension", 
-            y=metric, 
-            color="Dataset", #hover_name="Test", 
-            symbol="Classifier", 
-            range_x=[min_x, max_x],
-            range_y=[0, 1]
-        )
-
-    else:
-        result_aux = result_filtered.loc[result_filtered['Dataset'] == dataset]
-        result = result_aux.loc[result_aux['Umap dimension'] % step == 0]
-        result = pd.concat([result_aux.loc[result_aux['Umap dimension'] == 1], result])
-
-        fig = px.line(
-            result, 
-            x="Umap dimension", 
-            y=metric, 
-            color="Classifier", 
-            # error_y=error,
-            range_x=[min_x, max_x],
-            range_y=[0, 1]
-        )
+    fig = px.line(
+        result, 
+        x="Umap dimension", 
+        y=metric, 
+        color="Classifier", 
+        # error_y=error,
+        range_x=[min_x, max_x],
+        range_y=[0, 1]
+    )
         
     fig.update_xaxes( title_text = "Umap dimension", showgrid=True, gridwidth=1, gridcolor='lightgray', 
                     showline=True, linewidth=1, linecolor='black', rangemode='tozero')
@@ -162,7 +139,7 @@ def generate_fig(result_filtered, dataset, metric, domain):
     fig.update_layout(plot_bgcolor = 'white',
 #     font = {'family': 'Arial','size': 16,'color': 'black'},
     colorway=["red", "green", "blue"])
-    fig.update_layout(title_text="Time: "+dataset, title_x=0.5)
+    fig.update_layout(title_text=f"{domain}: {dataset}", title_x=0.5)
 
     return fig
 
@@ -179,7 +156,7 @@ app.layout = html.Div([
         id='domain',
         inline=True,
         options=domains,
-        value='Time'
+        value='Frequency'
     ),
 
     html.H4('Classifier: '),
@@ -195,24 +172,13 @@ app.layout = html.Div([
         id='dataset',
         inline=True,
         options=datasets,
-        value="All"
+        value="MotionSense"
     ),
     dcc.Graph(id="graph"),
-    dash_table.DataTable(
-        id='table-info',
-        columns=(
-            [{'id': p, 'name': p} for p in table_columns]
-        ),
-        data=[
-            # dict(Model=i, **{param: 0 for param in params}) for i in range(1, 5)
-        ],
-        editable=True
-    )
 ])
 
 @app.callback(
     Output("graph", "figure"),
-    Output("table-info", "data"),
     Input("metric", "value"),
     Input("domain", "value"),
     Input("classifier", "value"),
@@ -223,13 +189,11 @@ def update_chart(metric, domain, classifier, dataset):
 
     if domain == 'Time':
         Root = '../../experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
-        max_x = 360
-        step = 5
+        max_x = 10
 
     elif domain == 'Frequency':
-        Root = '../../experiments/Umap_Dimensions/results/results_df_umap_dimension_frequency.json' 
-        max_x = 180
-        step = 2
+        Root = '../../experiments/Umap_Dimensions/results/results_df_umap_dimension_raw_frequency.json' 
+        max_x = 10
 
     with open(Root, 'r') as f:
         result_load = json.load(f)
@@ -238,22 +202,9 @@ def update_chart(metric, domain, classifier, dataset):
     if classifier != 'All':
         result = result.loc[result['Classifier'] == classifier]
     result_filtered = result[features]
-    print(result_filtered)
-    # print([col for col in result_filtered.columns])
     fig = generate_fig(result_filtered, dataset, metric, domain)
     
-    filter_for_table = result_filtered.copy()
-    if dataset != 'All':
-        filter_for_table = filter_for_table[filter_for_table['Dataset'] == dataset]
-    data = []
-    for row_tuple in filter_for_table.itertuples(index=False, name=None):
-        obj = {}
-        for feature_index in range(len(features)):
-            obj[features[feature_index]] = row_tuple[feature_index]
-        data.append(obj)
-
-    # data = analysis(domain, filter_for_table, metric).to_dict()
-    return fig, data
+    return fig
  
 if __name__ == '__main__':
     app.run_server(port=8050, debug=True, use_reloader=True)
