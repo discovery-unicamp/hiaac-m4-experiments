@@ -1,0 +1,25 @@
+strict digraph "" {
+	train_dataset -> fft_convert_train;
+	test_dataset -> fft_convert_test;
+	reduce_dataset -> fft_convert_reduce;
+	output_dir;
+	fft_centered -> fft_convert_train;
+	fft_centered -> fft_convert_test;
+	fft_centered -> fft_convert_reduce;
+	fft_convert_train -> umap_transform_fft_train;
+	fft_convert_test -> umap_transform_fft_test;
+	fft_convert_reduce -> umap_train;
+	umap_2 -> umap_train;
+	umap_train -> umap_transform_fft_train;
+	umap_train -> umap_transform_fft_test;
+	umap_transform_fft_train -> train_rf;
+	umap_transform_fft_test -> predict_rf;
+	umap_transform_fft_test -> get_test_y;
+	rf_100 -> train_rf;
+	train_rf -> predict_rf;
+	predict_rf -> evaluate;
+	get_test_y -> evaluate;
+	classification_report -> evaluate;
+	evaluate -> watcher;
+	print -> watcher;
+}
