@@ -1,36 +1,34 @@
-objects:
-  fft_centered:
-    operation: fft
-    kwargs:
-      centered: true
-
-  umap_2:
-    operation: umap
-    kwargs:
-      n_components: 2
-
-  rf_100:
-    operation: random_forest
-    kwargs:
-      n_estimators: 100
-
-  svm:
-    operation: svm
-  
-  classification_report:
-    operation: classification_report
-
-  print:
-    operation: print
-
 flow:
-  description: "Flow to fit and reduce using umap"
-
-  inputs: 
+  inputs:
     - train_dataset     # Multi-modal dataset
     - test_dataset      # Multi-modal dataset
     - reduce_dataset    # Multi-modal dataset
-    - output_dir        # Path
+    - umap_dimensions   # Path
+
+  objects:
+    fft_centered:
+      operation: fft
+      kwargs:
+        centered: true
+
+    umap:
+      operation: umap
+      kwargs:
+        n_components: $umap_dimensions
+
+    rf_100:
+      operation: random_forest
+      kwargs:
+        n_estimators: 100
+
+    svm:
+      operation: svm
+
+    classification_report:
+      operation: classification_report
+
+    print:
+      operation: print
 
   pipeline:
     fft_convert_train:
@@ -42,7 +40,6 @@ flow:
       call:
         kwargs:
           dataset: $train_dataset
-        
 
     fft_convert_test:
       operation: DatasetTransformer
@@ -68,7 +65,7 @@ flow:
       operation: DatasetFitter
       init:
         kwargs:
-          transform: $umap_2
+          transform: $umap
           use_y: false
       call:
         kwargs:
@@ -83,7 +80,7 @@ flow:
       call:
         kwargs:
           dataset: $fft_convert_train
-        
+
     umap_transform_fft_test:
       operation: DatasetTransformer
       init:
@@ -103,7 +100,7 @@ flow:
       call:
         kwargs:
           dataset: $umap_transform_fft_train
-    
+
     predict_rf:
       operation: DatasetPredicter
       init:
@@ -119,7 +116,7 @@ flow:
       call:
         kwargs:
           dataset: $umap_transform_fft_test
-      
+
     evaluate:
       operation: DatasetEvaluator
       init:
@@ -138,19 +135,3 @@ flow:
       call:
         args:
           - $evaluate
-
-
-      
-      
-
-    
-    
-
-    
-      
-      
-
-
-    
-
-
