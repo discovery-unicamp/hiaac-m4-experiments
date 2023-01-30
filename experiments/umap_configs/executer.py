@@ -2,6 +2,8 @@
 import argparse
 import logging
 import time
+import numpy as np
+import pandas as pd
 import yaml
 import networkx as nx
 
@@ -41,15 +43,15 @@ labels_activity = {
     6: "stair up and down",
 }
 
-class Input:
-    def __init__(self, value):
+class InputNode:
+    def __init__(self, name, value):
+        self.name = name
         self.value = value
 
     def __call__(self):
         return self.value
 
 the_objects = {
-    "Input": Input,
     "DatasetFitter": DatasetFitter,
     "DatasetPredicter": DatasetPredicter,
     "DatasetTransformer": DatasetTransformer,
@@ -70,26 +72,9 @@ the_objects = {
     "classification_report": ClassificationReport,
 
     # Other functions
-    "print": print
+    "print": InputNode("print", print)
 }
 
-class CreateObject:
-    def __init__(self, operation, args, kwargs):
-        self.operation = operation
-        self.args = args
-        self.kwargs = kwargs
-
-    def __call__(self):
-        return self.operation(*self.args, **self.kwargs)
-
-class CallObject:
-    def __init__(self, obj, args, kwargs):
-        self.obj = obj
-        self.args = args
-        self.kwargs = kwargs
-
-    def __call__(self):
-        return self.obj(*self.args, **self.kwargs)
 
 def load_yaml(path: Union[Path, str]) -> dict:
     path = Path(path)
@@ -99,26 +84,27 @@ def load_yaml(path: Union[Path, str]) -> dict:
 class Pipeline:
     def __init__(self, config: dict):
         self.config = config
-        self.operations = []
         self.inputs = self.config["flow"].get("inputs", [])
-        self.objects = {}
-
-        print("Creating non-pipeline objects")
-        self.create_non_pipeline_objects()
-        print(f"Now have {len(self.objects)} objects\n")
-
-        print("Creating pipeline objects")
-        self.create_pipeline_objects()
-        print(f"Now have {len(self.objects)} objects\n")
-
+        self.start_nodes = self.inputs  + list(self.config["objects"].keys())
         self.graph = self.create_graph()
-        
-    def create_non_pipeline_objects(self):
-        for key, value in self.config["objects"].items():
-            operation = the_objects[value["operation"]]
-            args = value.get("args", [])
-            kwargs = value.get("kwargs", {})
-            self.objects[key] = operation(*args, **kwargs)
+        self.objects = {}
+        self.create_non_pipeline_objects()
+
+        # self.templates = {}
+        # self.operations = []
+        # self.objects = {}
+        # self.obj_calls = {}
+        # self.graph = nx.DiGraph()
+
+        # print("Creating non-pipeline objects")
+        # self.create_non_pipeline_objects()
+        # print(f"Now have {len(self.objects)} objects\n")
+
+        # print("Creating pipeline objects")
+        # self.create_pipeline_objects()
+        # print(f"Now have {len(self.objects)} objects\n")
+
+
 
     def get_obj_ref(self, obj):
         if isinstance(obj, str) and obj.startswith("$"):
@@ -130,12 +116,24 @@ class Pipeline:
             return obj[1:]
         return None
 
-    def create_pipeline_objects(self):
-        for key, value in self.config["flow"]["pipeline"].items():
+    def create_non_pipeline_objects(self):
+        for key, value in self.config["objects"].items():
             operation = the_objects[value["operation"]]
-            init_args = [self.get_obj_ref(obj) for obj in value.get("init", {}).get("args", [])]
-            init_kwargs = {k: self.get_obj_ref(v) for k, v in value.get("init", {}).get("kwargs", {}).items()}
-            self.objects[key] = operation(*init_args, **init_kwargs)
+            args = value.get("args", [])
+            kwargs = value.get("kwargs", {})
+            self.objects[key] = operation(*args, **kwargs)
+
+    # def create_pipeline_objects(self):
+    #     for key, value in self.config["flow"]["pipeline"].items():
+    #         operation = the_objects[value["operation"]]
+    #         init_args = [self.get_obj_ref(obj) for obj in value.get("init", {}).get("args", [])]
+    #         init_kwargs = {k: self.get_obj_ref(v) for k, v in value.get("init", {}).get("kwargs", {}).items()}
+    #         self.objects[key] = operation(*init_args, **init_kwargs)
+
+    #     for key, value in self.config["flow"]["pipeline"].items():
+    #         call_args = [self.get_obj_ref(obj) for obj in value.get("call", {}).get("args", [])]
+    #         call_kwargs = {k: self.get_obj_ref(v) for k, v in value.get("call", {}).get("kwargs", {}).items()}
+    #         self.obj_calls[key] = (call_args, call_kwargs)
 
     def create_graph(self):
         graph = nx.DiGraph()
@@ -156,8 +154,55 @@ class Pipeline:
                     graph.add_edge(node, key)
         return graph
 
-    def run(self):
-        pass
+    def run(self, *args, **kwargs):
+        for inp in self.inputs:
+            self.objects[inp] = kwargs[inp]
+
+        for x in nx.topological_sort(self.graph):
+            print(x)
+
+            if x in self.start_nodes:
+                continue
+
+            obj = self.config["flow"]["pipeline"][x]
+            init_args = [self.get_obj_ref(obj) for obj in obj.get("init", {}).get("args", [])]
+            init_kwargs = {k: self.get_obj_ref(v) for k, v in obj.get("init", {}).get("kwargs", {}).items()}
+            instance = the_objects[obj["operation"]](*init_args, **init_kwargs)
+
+            call_args = [self.get_obj_ref(obj) for obj in obj.get("call", {}).get("args", [])]
+            call_kwargs = {k: self.get_obj_ref(v) for k, v in obj.get("call", {}).get("kwargs", {}).items()}
+            self.objects[x] = instance(*call_args, **call_kwargs)
+
+
+        #     print(x)
+        #     if x in self.obj_calls:
+        #         args, kwargs = self.obj_calls[x]
+        #         args = [a if not isinstance(a, InputNode) else a() for a in args]
+        #         kwargs = {k: (a if not isinstance(a, InputNode) else a()) for k, a in kwargs.items()}
+        #         obj = self.objects[x]
+        #         obj(*args, **kwargs)
+        #     else:
+        #         pass
+
+
+def multimodal_dataframe_1():
+    df = pd.DataFrame(
+        np.arange(80).reshape(10, 8),
+        columns=[
+            "accel-0",
+            "accel-1",
+            "accel-2",
+            "accel-3",
+            "gyro-0",
+            "gyro-1",
+            "gyro-2",
+            "gyro-3",
+        ],
+    )
+    df["label"] = np.arange(10)
+    return PandasMultiModalDataset(
+        df, feature_prefixes=["accel", "gyro"], label_columns="label", as_array=True
+    )
 
 
 if __name__ == "__main__":
@@ -168,6 +213,11 @@ if __name__ == "__main__":
     output = "/home/lopani/Documents/Doutorado/UNICAMP/H.IAAC-Meta4/hiaac-m4-experiments/experiments/umap_configs/simple_config.dot"
     write_dot(pipeline.graph, output)
     Source.from_file(output)
+    train_dataset = multimodal_dataframe_1()
+    test_dataset = multimodal_dataframe_1()
+    reduce_dataset = multimodal_dataframe_1()
+
+    pipeline.run(train_dataset=train_dataset, test_dataset=test_dataset, reduce_dataset=reduce_dataset, output_dir="")
 
 # def load_mega(data_dir: Path, datasets: List[str] = None, label_columns: str = "standard activity code", features: List[str] = None):
 #     mega_dset = MegaHARDataset_BalancedView20Hz(data_dir, download=False)
