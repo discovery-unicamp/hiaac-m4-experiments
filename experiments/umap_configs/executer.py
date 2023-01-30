@@ -108,7 +108,17 @@ class Pipeline:
 
     def create_graph(self):
         graph = nx.DiGraph()
-        graph.add_nodes_from(self.inputs)
+        # graph.add_nodes_from(self.inputs)
+        graph.add_nodes_from(self.start_nodes, s="^", b=1)
+        for key, value in self.config["flow"]["objects"].items():
+            graph.add_node(key)
+            for node in [self.get_node_name(obj) for obj in value.get("args", [])]:
+                if node:
+                    graph.add_edge(node, key)
+            for node in [self.get_node_name(v) for v in value.get("kwargs", {}).values()]:
+                if node:
+                    graph.add_edge(node, key)
+
         for key, value in self.config["flow"]["pipeline"].items():
             for node in [self.get_node_name(obj) for obj in value.get("init", {}).get("args", [])]:
                 if node:
