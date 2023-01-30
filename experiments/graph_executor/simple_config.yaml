@@ -1,0 +1,150 @@
+flow:
+  inputs:
+    - mega_dataset_path       # Path to mega dataset
+    - train_dataset_names     # Multi-modal dataset
+    - test_dataset_names      # Multi-modal dataset
+    - reduce_dataset_names    # Multi-modal dataset
+    - umap_dimensions         # integer
+
+
+  objects:
+    fft_centered:
+      operation: fft
+      kwargs:
+        centered: true
+
+    umap:
+      operation: umap
+      kwargs:
+        n_components: $umap_dimensions
+
+    rf_100:
+      operation: random_forest
+      kwargs:
+        n_estimators: 100
+
+    svm:
+      operation: svm
+
+    classification_report:
+      operation: classification_report
+
+    print:
+      operation: print
+
+  pipeline:
+    train_dataset:
+      operation: DatasetLoader
+      init:
+        kwargs:
+          path: $mega_dataset_path
+      call:
+        kwargs:
+          datasets: $train_dataset_names
+
+
+
+    fft_convert_train:
+      operation: DatasetTransformer
+      init:
+        kwargs:
+          transform: $fft_centered
+          new_suffix: "fft."
+      call:
+        kwargs:
+          dataset: $train_dataset
+
+    fft_convert_test:
+      operation: DatasetTransformer
+      init:
+        kwargs:
+          transform: $fft_centered
+          new_suffix: "fft."
+      call:
+        kwargs:
+          dataset: $test_dataset
+
+    fft_convert_reduce:
+      operation: DatasetTransformer
+      init:
+        kwargs:
+          transform: $fft_centered
+          new_suffix: "fft."
+      call:
+        kwargs:
+          dataset: $reduce_dataset
+
+    umap_train:
+      operation: DatasetFitter
+      init:
+        kwargs:
+          transform: $umap
+          use_y: false
+      call:
+        kwargs:
+          dataset: $fft_convert_reduce
+
+    umap_transform_fft_train:
+      operation: DatasetTransformer
+      init:
+        kwargs:
+          transform: $umap_train
+          new_suffix: "umap."
+      call:
+        kwargs:
+          dataset: $fft_convert_train
+
+    umap_transform_fft_test:
+      operation: DatasetTransformer
+      init:
+        kwargs:
+          transform: $umap_train
+          new_suffix: "umap."
+      call:
+        kwargs:
+          dataset: $fft_convert_test
+
+    train_rf:
+      operation: DatasetFitter
+      init:
+        kwargs:
+          transform: $rf_100
+          use_y: true
+      call:
+        kwargs:
+          dataset: $umap_transform_fft_train
+
+    predict_rf:
+      operation: DatasetPredicter
+      init:
+        kwargs:
+          estimator: $train_rf
+          use_y: false
+      call:
+        kwargs:
+          dataset: $umap_transform_fft_test
+
+    get_test_y:
+      operation: DatasetY
+      call:
+        kwargs:
+          dataset: $umap_transform_fft_test
+
+    evaluate:
+      operation: DatasetEvaluator
+      init:
+        kwargs:
+          evaluator: $classification_report
+      call:
+        args:
+          - $get_test_y
+          - $predict_rf
+
+    watcher:
+      operation: Watcher
+      init:
+        kwargs:
+          func: $print
+      call:
+        args:
+          - $evaluate
