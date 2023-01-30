@@ -75,21 +75,17 @@ lost_results = {
     "Best UMAP dimension": [],
     "Lost %": []
 }
-def analysis(domain, result_df, metric):
-    if domain == 'Time':
-        end = 10
-    elif(domain == 'Frequency'):
-        end = 10
-    else:
-        print('Error')
-        return
+def analysis(result_df, metric):
+
+    # I need to fix this function
     
     datasets = list(result_df['Dataset'].unique())
     
     columns = {column:[] for column in table_columns}
 
     classifiers = list(result_df['Classifier'].unique())
-    dimensions = [i for i in range(1,11)] + [end]
+    # dimensions = [i for i in range(1,11)] + [end]
+    dimensions = list(result_df['Umap dimension'].unique())
 
     for dataset in datasets:
         for classifier in classifiers:
@@ -156,7 +152,7 @@ app.layout = html.Div([
         id='domain',
         inline=True,
         options=domains,
-        value='Frequency'
+        value='Time'
     ),
 
     html.H4('Classifier: '),
@@ -188,12 +184,10 @@ app.layout = html.Div([
 def update_chart(metric, domain, classifier, dataset):
 
     if domain == 'Time':
-        Root = '../../experiments/Umap_Dimensions/results/results_df_umap_dimension_time.json' 
-        max_x = 10
+        Root = '../../experiments/Umap_Dimensions/results/results_df_umap_dimension_raw_time.json' 
 
     elif domain == 'Frequency':
         Root = '../../experiments/Umap_Dimensions/results/results_df_umap_dimension_raw_frequency.json' 
-        max_x = 10
 
     with open(Root, 'r') as f:
         result_load = json.load(f)

@@ -220,6 +220,20 @@ evaluators = {
         1
     }
 }
+
+Load = True
+if Load:
+    path = 'results/results_df_umap_dimension_raw_frequency.json'
+    with open(path, 'r') as f:
+        df_results = json.load(f)
+
+    path = 'results/results_dict_umap_dimension_raw_frequency.json'
+    with open(path, 'r') as f:
+        results_dict = json.load(f)
+else:
+    df_results = None
+    idx=-1
+
 start = time.time()
 
 fft_transform = FFT(centered=True)
@@ -244,7 +258,15 @@ for dataset in datasets:
     dimensions_umap = [i+1 for i in range(10)]
     dimensions_umap += [k for k in range(20, original_dimension+1, 10)]
 
-    for dimension in dimensions_umap:
+    print('Ok')
+    if df_results is not None:
+        print('Ok')
+        df = pd.DataFrame(df_results)
+        calculeted_dimensions_umap = list(df.loc[df['Dataset'] == dataset]['Umap dimension'].unique())
+        last_dimension = calculeted_dimensions_umap[-1]
+        idx = dimensions_umap.index(last_dimension)
+
+    for dimension in dimensions_umap[idx+1:]:
         new_start = time.time()
         df_results, results_dict = evaluate(dimension, dataset, train_fft, test_fft, evaluators, df_results, 
                                             results_dict, labels_activity, metrics_class, reporter, original_dimension)
@@ -265,8 +287,8 @@ print(f'Time of execution: {total // 60} minutes and {total % 60} seconds')
 print(f'Time of execution: {(total // 3600) % 24} hours, {(total // 60) % 60} minutes and {total % 60} seconds')
 
 # Save results
-with open('results/results_df_umap_dimension_raw_frequency.json', 'w') as file:
-    json.dump(df_results, file)
+# with open('results/results_df_umap_dimension_raw_frequency.json', 'w') as file:
+#     json.dump(df_results, file)
     
-with open('results/results_dict_umap_dimension_raw_frequency.json', 'w') as file:
-    json.dump(results_dict, file)
+# with open('results/results_dict_umap_dimension_raw_frequency.json', 'w') as file:
+#     json.dump(results_dict, file)
