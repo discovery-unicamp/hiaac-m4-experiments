@@ -25,7 +25,7 @@ class AddGravityColumn:
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         for axis_col, gravity_col in zip(self.axis_columns, self.gravity_columns):
-            df[axis_col] = df[axis_col] - df[gravity_col]
+            df[axis_col] = df[axis_col] + df[gravity_col]
         return df
 
 
