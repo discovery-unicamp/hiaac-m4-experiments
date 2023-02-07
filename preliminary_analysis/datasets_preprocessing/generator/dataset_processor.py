@@ -6,6 +6,7 @@ import pandas as pd
 from scipy import signal
 from scipy import constants
 import tqdm
+import plotly.express as px
 
 
 class WindowReconstruction:
@@ -25,7 +26,7 @@ class AddGravityColumn:
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         for axis_col, gravity_col in zip(self.axis_columns, self.gravity_columns):
-            df[axis_col] = df[axis_col] - df[gravity_col]
+            df[axis_col] = df[axis_col] + df[gravity_col]
         return df
 
 
@@ -38,7 +39,6 @@ class Convert_G_to_Ms2:
         for axis_col in self.axis_columns:
             df[axis_col] = df[axis_col] *self. gravity_constant
         return df
-
 
 class ButterworthFilter:
     def __init__(self, axis_columns: List[str], fs: float):
@@ -73,6 +73,16 @@ class CalcTimeDiffMean:
         if self.filter_predicate:
             df = df.groupby(self.groupby_column).filter(self.filter_predicate)
         return df.reset_index(drop=True)
+
+class PlotDiffMean:
+    def __init__(self, column_to_plot: str = "diff"):
+        self.column_to_plot = column_to_plot
+
+
+    def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
+        fig = px.histogram(df, x=self.column_to_plot, nbins=100)
+        fig.show("png")
+        return df
 
 
 class Resampler:
@@ -114,6 +124,7 @@ class Windowize:
         features_to_select: List[str],
         samples_per_window: int,
         samples_per_overlap: int,
+        groupby_column: Union[str, List[str]],
     ):
         self.features_to_select = (
             features_to_select
@@ -122,11 +133,12 @@ class Windowize:
         )
         self.samples_per_window = samples_per_window
         self.samples_per_overlap = samples_per_overlap
+        self.groupby_column = groupby_column
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         values = []
         other_columns = set(df.columns) - set(self.features_to_select)
-        for key, grouped_df in tqdm.tqdm(df.groupby("csv"), desc="Creating windows"):
+        for key, grouped_df in tqdm.tqdm(df.groupby(self.groupby_column), desc="Creating windows"):
             for start in range(
                 0, len(grouped_df), self.samples_per_window - self.samples_per_overlap
             ):
