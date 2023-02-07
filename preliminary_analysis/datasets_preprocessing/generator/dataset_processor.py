@@ -10,6 +10,14 @@ import plotly.express as px
 import plotly.graph_objs as go
 
 
+# class BalancedData:
+
+#     def __init__(
+#             self,
+#             ):
+#     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
+#         raise NotImplementedError
+
 class WindowReconstruction:
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
@@ -82,7 +90,7 @@ class Convert_G_to_Ms2:
             Dataframe com os dados de aceleração convertidos.
         """
         for axis_col in self.axis_columns:
-            df[axis_col] = df[axis_col] *self. gravity_constant
+            df[axis_col] = df[axis_col] * self.gravity_constant
         return df
 
 class ButterworthFilter:
@@ -247,7 +255,7 @@ class Resampler:
             df.groupby(self.groupby_column, group_keys=True), desc="Resampling"
         ):
             for column in self.features_to_select:
-                time = len(grouped_df) / self.original_fs
+                time = len(grouped_df) // self.original_fs
                 arr = np.array([np.nan] * len(grouped_df))
                 resampled = signal.resample(
                     grouped_df[column].values, int(time * self.target_fs)
@@ -315,7 +323,7 @@ class Windowize:
             for start in range(
                 0, len(grouped_df), self.samples_per_window - self.samples_per_overlap
             ):
-                window_df = grouped_df[start : start + self.samples_per_window]
+                window_df = grouped_df[start : start + self.samples_per_window].reset_index(drop=True)
                 features = window_df[self.features_to_select].unstack()
                 features.index = features.index.map(
                     lambda a: f"{a[0]}-{(a[1])%(self.samples_per_window)}"
