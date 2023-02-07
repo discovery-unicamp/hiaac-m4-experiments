@@ -135,6 +135,7 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
     # print("Applying transforms...")
     # Transform
     transform_time = time.time()
+    # TODO the reducer_dset must also be reduced......
     train_dset, test_dset = do_transform(train_dset, test_dset, config.transforms)
     additional_info["transform_time"] = time.time()-transform_time
     # Reduce
