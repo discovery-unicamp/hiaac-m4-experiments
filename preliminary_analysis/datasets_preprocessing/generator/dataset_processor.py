@@ -33,11 +33,15 @@ class SplitGuaranteeingAllClassesPerSplit:
 
         for _ in range(self.retries):
             random.shuffle(split_values)
-            train_values = split_values[: int(len(split_values) * self.train_size)]
-            test_values = split_values[int(len(split_values) * self.train_size) :]
+            train_values = split_values[: int(
+                len(split_values) * self.train_size)]
+            test_values = split_values[int(
+                len(split_values) * self.train_size):]
 
-            train_df = dataframe.loc[dataframe[self.column_to_split].isin(train_values)]
-            test_df = dataframe.loc[dataframe[self.column_to_split].isin(test_values)]
+            train_df = dataframe.loc[dataframe[self.column_to_split].isin(
+                train_values)]
+            test_df = dataframe.loc[dataframe[self.column_to_split].isin(
+                test_values)]
 
             if len(train_df[self.class_column].unique()) != len(class_values):
                 continue
@@ -75,6 +79,7 @@ class BalanceToMinimumClass:
         )
         return balanced_df
 
+
 class WindowReconstruction:
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
@@ -88,6 +93,7 @@ class Interpolate:
 class AddGravityColumn:
     """Adiciona uma coluna com a gravidade em cada eixo.
     """
+
     def __init__(self, axis_columns: List[str], gravity_columns: List[str]):
         """
         Parameters
@@ -121,6 +127,7 @@ class AddGravityColumn:
 class Convert_G_to_Ms2:
     """Converte a aceleração de g para m/s².
     """
+
     def __init__(self, axis_columns: List[str], g_constant: float = constants.g):
         """
         Parameters
@@ -154,6 +161,7 @@ class Convert_G_to_Ms2:
 class ButterworthFilter:
     """Aplica o filtro Butterworth para remoção da gravidade.
     """
+
     def __init__(self, axis_columns: List[str], fs: float):
         """
         Parameters
@@ -188,6 +196,7 @@ class ButterworthFilter:
 class CalcTimeDiffMean:
     """Calcula a differença entre os intervalos de tempo.
     """
+
     def __init__(
         self,
         groupby_column: Union[str, List[str]],
@@ -240,6 +249,7 @@ class CalcTimeDiffMean:
 class PlotDiffMean:
     """Imprime o histograma da diferença entre os intervalos de tempo.
     """
+
     def __init__(self, column_to_plot: str = "diff"):
         """
         Parameters
@@ -257,7 +267,7 @@ class PlotDiffMean:
         _type_
             O próprio dataframe.
         """
-        
+
         fig = px.histogram(df, x=self.column_to_plot)
         fig.show("png")
         return df
@@ -266,7 +276,8 @@ class PlotDiffMean:
 class Resampler:
     """Reamostra colunas do dataframe assumindo que os dados estão em uma frequência fixa.
     Usa a função `scipy.signal.resample` para reamostrar os dados.
-    """    
+    """
+
     def __init__(
         self,
         groupby_column: Union[str, List[str]],
@@ -287,7 +298,7 @@ class Resampler:
             Frequencia original do conjunto de dados.
         target_fs : float
             Frequencia desejada para o conjunto de dados.
-        """        
+        """
         self.groupby_column = groupby_column
         self.features_to_select = (
             [features_to_select]
@@ -299,12 +310,10 @@ class Resampler:
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         """Reamostra as colunas do dataframe.
-
         Parameters
         ----------
         df : pd.DataFrame
             O dataframe a ser reamostrado.
-
         Returns
         -------
         pd.DataFrame
@@ -325,6 +334,76 @@ class Resampler:
         return df.dropna().reset_index(drop=True)
 
 
+class ResamplerPoly:
+    """Reamostra colunas do dataframe assumindo que os dados estão em uma frequência fixa.
+    Usa a função `scipy.signal.resample` para reamostrar os dados.
+    """
+
+    def __init__(
+        self,
+        groupby_column: Union[str, List[str]],
+        features_to_select: Union[str, List[str]],
+        up: float,
+        down: float,
+        padtype: str = 'mean',
+
+    ):
+        """
+        Parameters
+        ----------
+        groupby_column : Union[str, List[str]]
+            Nome da(s) coluna(s) a ser agrupada para reamostrar.
+            Normalmente agrupa-se por evento do usuário 
+            (senão reamostra o dataframe todo, com amostras de diferentes eventos e usuários)
+        features_to_select : Union[str, List[str]]
+            Nome da(s) coluna(s) a ser reamostrada.
+        up : float
+            Fator de aumento da frequencia.
+        down : float   
+            Fator de redução da frequencia.
+        padtype : str, optional
+            Tipo de preenchimento, por padrão 'mean'.
+        """
+        self.groupby_column = groupby_column
+        self.features_to_select = (
+            [features_to_select]
+            if isinstance(features_to_select, str)
+            else features_to_select
+        )
+        self.up = up
+        self.down = down
+        self.padtype = padtype
+
+    def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Reamostra as colunas do dataframe.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            O dataframe a ser reamostrado.
+
+        Returns
+        -------
+        pd.DataFrame
+            O dataframe com as colunas desejadas, reamostrado.
+        """
+        df = df.reset_index()
+        for _, grouped_df in tqdm.tqdm(
+            df.groupby(self.groupby_column, group_keys=True), desc="Resampling"
+        ):
+            for column in self.features_to_select:
+                arr = np.array([np.nan] * len(grouped_df))
+                resampled = signal.resample_poly(
+                    grouped_df[column].values,
+                    up=self.up,
+                    down=self.down,
+                    padtype=self.padtype,
+                )
+                arr[: len(resampled)] = resampled
+                df.loc[grouped_df.index, column] = arr
+        return df.dropna().reset_index(drop=True)
+
+
 class Windowize:
     """Realiza o janelamento dos dados em janelas de tamanho fixo.
     O janelamento será feito com amostras consecutivas do dataframe e a ultima janela será descartada.
@@ -332,6 +411,7 @@ class Windowize:
     Para as colunas remanescentes, será mantido o primeiro elemento da janela.
     Nota: assume-se aqui que a janela não possui sobreposição e que a taxa de amostragem é constante.
     """
+
     def __init__(
         self,
         features_to_select: List[str],
@@ -381,9 +461,11 @@ class Windowize:
         other_columns = set(df.columns) - set(self.features_to_select)
         for key, grouped_df in tqdm.tqdm(df.groupby(self.groupby_column), desc="Creating windows"):
             for start in range(
-                0, len(grouped_df), self.samples_per_window - self.samples_per_overlap
+                0, len(grouped_df), self.samples_per_window -
+                self.samples_per_overlap
             ):
-                window_df = grouped_df[start : start + self.samples_per_window].reset_index(drop=True)
+                window_df = grouped_df[start: start +
+                                       self.samples_per_window].reset_index(drop=True)
                 features = window_df[self.features_to_select].unstack()
                 features.index = features.index.map(
                     lambda a: f"{a[0]}-{(a[1])%(self.samples_per_window)}"
@@ -397,6 +479,7 @@ class Windowize:
 class AddStandardActivityCode:
     """Adiciona a coluna "standard activity code" ao dataframe.
     """
+
     def __init__(self, codes_map: dict):
         """
         Parameters
@@ -427,6 +510,7 @@ class AddStandardActivityCode:
 class RenameColumns:
     """Renomeia colunas do dataframe.
     """
+
     def __init__(self, columns_map: dict):
         """
         Parameters
@@ -456,6 +540,7 @@ class RenameColumns:
 class Pipeline:
     """Pipeline de transformações de dados.
     """
+
     def __init__(self, transforms: Callable[[pd.DataFrame], pd.DataFrame]):
         """
         Parameters
@@ -479,7 +564,7 @@ class Pipeline:
         -------
         pd.DataFrame
             O dataframe transformado.
-        """        
+        """
         for transform in self.transforms:
             print(f"Executing {transform.__class__.__qualname__}")
             df = transform(df)
