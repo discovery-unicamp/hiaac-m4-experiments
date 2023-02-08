@@ -17,7 +17,7 @@ class SplitGuaranteeingAllClassesPerSplit:
         column_to_split: str = "user",
         class_column: str = "standard activity code",
         train_size: float = 0.8,
-        random_state: int = 42,
+        random_state: int = None,
         retries: int = 10,
     ):
         self.column_to_split = column_to_split
