@@ -1,4 +1,3 @@
-from abc import ABC
 from typing import Callable, List, Union
 import numpy as np
 
@@ -7,16 +6,74 @@ from scipy import signal
 from scipy import constants
 import tqdm
 import plotly.express as px
-import plotly.graph_objs as go
+
+from typing import Tuple
+import random
 
 
-# class BalancedData:
+class SplitGuaranteeingAllClassesPerSplit:
+    def __init__(
+        self,
+        column_to_split: str = "user",
+        class_column: str = "standard activity code",
+        train_size: float = 0.8,
+        random_state: int = 42,
+        retries: int = 10,
+    ):
+        self.column_to_split = column_to_split
+        self.class_column = class_column
+        self.train_size = train_size
+        self.random_state = random_state
+        self.retries = retries
 
-#     def __init__(
-#             self,
-#             ):
-#     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
-#         raise NotImplementedError
+    def __call__(self, dataframe: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        random.seed(self.random_state)
+        split_values = dataframe[self.column_to_split].unique()
+        class_values = dataframe[self.class_column].unique()
+
+        for _ in range(self.retries):
+            random.shuffle(split_values)
+            train_values = split_values[: int(len(split_values) * self.train_size)]
+            test_values = split_values[int(len(split_values) * self.train_size) :]
+
+            train_df = dataframe.loc[dataframe[self.column_to_split].isin(train_values)]
+            test_df = dataframe.loc[dataframe[self.column_to_split].isin(test_values)]
+
+            if len(train_df[self.class_column].unique()) != len(class_values):
+                continue
+            if len(test_df[self.class_column].unique()) != len(class_values):
+                continue
+            return train_df.reset_index(drop=True), test_df.reset_index(drop=True)
+
+        raise ValueError(
+            "Could not split dataframe in a way that all classes are present in both splits"
+        )
+
+
+class BalanceToMinimumClass:
+    def __init__(
+        self, class_column: str = "standard activity code", random_state: int = 42
+    ):
+        self.class_column = class_column
+        self.random_state = random_state
+
+    def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        class_values = dataframe[self.class_column].unique()
+        min_class_size = min(
+            [
+                len(dataframe.loc[dataframe[self.class_column] == class_value])
+                for class_value in class_values
+            ]
+        )
+        balanced_df = pd.concat(
+            [
+                dataframe.loc[dataframe[self.class_column] == class_value].sample(
+                    min_class_size, random_state=self.random_state
+                )
+                for class_value in class_values
+            ]
+        )
+        return balanced_df
 
 class WindowReconstruction:
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -93,6 +150,7 @@ class Convert_G_to_Ms2:
             df[axis_col] = df[axis_col] * self.gravity_constant
         return df
 
+
 class ButterworthFilter:
     """Aplica o filtro Butterworth para remoção da gravidade.
     """
@@ -125,6 +183,7 @@ class ButterworthFilter:
         for axis_col in self.axis_columns:
             df[axis_col] = signal.sosfiltfilt(h, df[axis_col].values)
         return df
+
 
 class CalcTimeDiffMean:
     """Calcula a differença entre os intervalos de tempo.
@@ -176,6 +235,7 @@ class CalcTimeDiffMean:
         if self.filter_predicate:
             df = df.groupby(self.groupby_column).filter(self.filter_predicate)
         return df.reset_index(drop=True)
+
 
 class PlotDiffMean:
     """Imprime o histograma da diferença entre os intervalos de tempo.
