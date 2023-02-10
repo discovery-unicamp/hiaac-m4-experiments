@@ -2,7 +2,7 @@ from typing import Callable, List, Union
 import numpy as np
 
 import pandas as pd
-from scipy import signal
+from scipy import signal, interpolate
 from scipy import constants
 import tqdm
 import plotly.express as px
@@ -86,8 +86,77 @@ class WindowReconstruction:
 
 
 class Interpolate:
+    """Interpola colunas do dataframe assumindo que os dados estão em uma frequência fixa.
+    Usa a função `scipy.interpolate` para interpolar os dados.
+    """
+
+    def __init__(
+        self,
+        groupby_column: Union[str, List[str]],
+        features_to_select: Union[str, List[str]],
+        original_fs: float,
+        target_fs: float,
+        kind: str = 'cubic',
+    ):
+        """
+        Parameters
+        ----------
+        groupby_column : Union[str, List[str]]
+            Nome da(s) coluna(s) a ser agrupada para reamostrar.
+            Normalmente agrupa-se por evento do usuário 
+            (senão reamostra o dataframe todo, com amostras de diferentes eventos e usuários)
+        features_to_select : Union[str, List[str]]
+            Nome da(s) coluna(s) a ser reamostrada.
+        original_fs : float
+            Frequência de amostragem original.
+        target_fs : float  
+            Frequência de amostragem desejada.
+        kind : str, optional.
+            Tipo de interpolação a ser usada, por padrão 'cubic'.
+        """
+        self.groupby_column = groupby_column
+        self.features_to_select = (
+            [features_to_select]
+            if isinstance(features_to_select, str)
+            else features_to_select
+        )
+        self.original_fs = original_fs
+        self.target_fs = target_fs
+        self.kind = kind
+
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
-        raise NotImplementedError
+        """Reamostra as colunas do dataframe.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            O dataframe a ser reamostrado.
+
+        Returns
+        -------
+        pd.DataFrame
+            O dataframe com as colunas desejadas, reamostrado.
+        """
+        df = df.reset_index()
+        for _, grouped_df in tqdm.tqdm(
+            df.groupby(self.groupby_column, group_keys=True), desc="Interpoling"
+        ):
+            for column in self.features_to_select:
+
+                signal = grouped_df[column].values
+                arr = np.array([np.nan] * len(grouped_df))
+                time = np.arange(0, len(signal), 1) / self.original_fs
+                interplator = interpolate.interp1d(
+                    time, 
+                    signal, 
+                    kind=self.kind,
+                )
+                new_time = np.arange(0, time[-1], 1/self.target_fs)
+                resampled = interplator(new_time)
+
+                arr[: len(resampled)] = resampled
+                df.loc[grouped_df.index, column] = arr
+        return df.dropna().reset_index(drop=True)
 
 
 class AddGravityColumn:
