@@ -22,7 +22,7 @@ from ray.util.multiprocessing import Pool
 
 # Librep imports
 from librep.base.transform import Transform
-from librep.datasets.har.loaders import MegaHARDataset_BalancedView20Hz
+from librep.datasets.har.loaders import MegaHARDataset_BalancedView20Hz, PandasMultiModalLoader
 from librep.datasets.multimodal import PandasMultiModalDataset, TransformMultiModalDataset, WindowedTransform
 from librep.transforms.fft import FFT
 from librep.utils.workflow import SimpleTrainEvalWorkflow, MultiRunWorkflow
@@ -52,23 +52,27 @@ def load_yaml(path: Union[Path, str]) -> dict:
     with path.open("r") as f:
         return yaml.load(f, Loader=yaml.CLoader)
 
+class Loader(PandasMultiModalLoader):
+    train_file="mega.csv"
+    validation_file=None
+    test_file=None
+
 def load_mega(data_dir: Path, datasets: List[str] = None, label_columns: str = "standard activity code", features: List[str] = None):
-    mega_dset = MegaHARDataset_BalancedView20Hz(data_dir, download=False)
-    data = mega_dset.load(concat_all=True, label=label_columns, features=features)
-    data.data.DataSet = data.data.DataSet.str.lower()
+    mega_dset = Loader(data_dir, download=False)
+    data = mega_dset.load(concat_all=True, load_validation=False, load_test=False, label=label_columns, features=features)
 
     if datasets is not None:
-        data.data = data.data.loc[data.data["DataSet"].isin(datasets)]
+        data.data = data.data.loc[data.data["dataset"].isin(datasets)]
 
     data.data['standard activity code'] = data.data['standard activity code'].astype('int')
     return data
 
 
 # Non-parametric transform
-def do_transform(train_dset, test_dset, reducer_dset, transforms: List[TransformConfig]):
+def do_transform(train_dset, test_dset, reducer_dset, transform_configs: List[TransformConfig]):
     transforms = []
     new_names = []
-    for transform_config in transforms:
+    for transform_config in transform_configs:
         the_transform = transforms_cls[transform_config.transform](**transform_config.kwargs)
         if transform_config.windowed:
             the_transform = WindowedTransform(
@@ -82,8 +86,7 @@ def do_transform(train_dset, test_dset, reducer_dset, transforms: List[Transform
     transformer = TransformMultiModalDataset(transforms=transforms, new_window_name_prefix=".".join(new_names))
     train_dset = transformer(train_dset)
     test_dset = transformer(test_dset)
-    if reducer_dset:
-        reducer_dset = transformer(reducer_dset)
+    reducer_dset = transformer(reducer_dset)
     return train_dset, test_dset, reducer_dset
 
 
@@ -93,8 +96,8 @@ def do_reduce(reducer_dset, train_dset, test_dset, reducer_config, reduce_on: st
         reducer.fit(reducer_dset[:][0])
         transform = WindowedTransform(
             transform=reducer,
-            fit_on=reducer_config.windowed["fit_on"],
-            transform_on=reducer_config.windowed["transform_on"],
+            fit_on=reducer_config.windowed.fit_on,
+            transform_on=reducer_config.windowed.transform_on,
         )
         transformer = TransformMultiModalDataset(transforms=[transform], new_window_name_prefix="reduced.")
         train_dset = transformer(train_dset)
@@ -137,7 +140,6 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
     # print("Applying transforms...")
     # Transform
     transform_time = time.time()
-    # TODO the reducer_dset must also be transformed......
     train_dset, test_dset, reducer_dset = do_transform(train_dset, test_dset, reducer_dset, config.transforms)
     additional_info["transform_time"] = time.time()-transform_time
     # Reduce
@@ -205,6 +207,7 @@ def run(args):
         config = from_dict(data_class=ExecutionConfig, data=load_yaml(file))
         result = _run(root_data_dir, output_dir, experiment_name, config)
         result["exception"] = None
+        result["additional"] = dict()
         result["ok"] = True
     except Exception as e:
         print(traceback.format_exc())
@@ -278,21 +281,21 @@ if __name__ == "__main__":
         help="Skip executions that were already run"
     )
 
-    # parser.add_argument(
-    #     "--start",
-    #     default=None,
-    #     help="Start at execution config no..",
-    #     type=int,
-    #     required=False
-    # )
+    parser.add_argument(
+        "--start",
+        default=None,
+        help="Start at execution config no..",
+        type=int,
+        required=False
+    )
 
-    # parser.add_argument(
-    #     "--end",
-    #     default=None,
-    #     help="End at execution config no..",
-    #     type=int,
-    #     required=False
-    # )
+    parser.add_argument(
+        "--end",
+        default=None,
+        help="End at execution config no..",
+        type=int,
+        required=False
+    )
 
     args = parser.parse_args()
     print(args)
@@ -308,14 +311,13 @@ if __name__ == "__main__":
     # experiments = load_yaml(args.experiment_file)
     # experiments = [from_dict(data_class=ExecutionConfig, data=e) for e in experiments]
 
-    # exp_from = args.start or 0
-    # exp_to = args.end or len(experiments)
-    # experiments = experiments[exp_from:exp_to]
-    # print(f"There are {len(experiments)} experiments")
+    exp_from = args.start or 0
+    exp_to = args.end or len(execution_configs)
+    execution_configs = execution_configs[exp_from:exp_to]
+    print(f"There are {len(execution_configs)} experiments")
 
     start = time.time()
     ray.init(args.address, logging_level=logging.ERROR)
-    print("Execution start...")
 
     pool = Pool()
     iterator = pool.imap_unordered(

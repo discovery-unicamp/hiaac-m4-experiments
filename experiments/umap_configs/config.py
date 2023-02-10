@@ -2,7 +2,7 @@
 from itertools import product
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 
 # Third-party imports
 from umap import UMAP
@@ -11,6 +11,11 @@ from umap import UMAP
 from librep.base.transform import Transform
 from librep.transforms.fft import FFT
 from librep.estimators import RandomForestClassifier, SVC, KNeighborsClassifier
+
+@dataclass
+class WindowedConfig:
+    fit_on: Optional[str]
+    transform_on: Optional[str]
 
 @dataclass
 class DatasetConfig:
@@ -23,14 +28,14 @@ class ReducerConfig:
     name: str
     algorithm: str
     kwargs: dict
-    windowed: dict
+    windowed: WindowedConfig
 
 @dataclass
 class TransformConfig:
     name: str
     transform: str
     kwargs: dict
-    windowed: dict
+    windowed: WindowedConfig
 
 @dataclass
 class EstimatorConfig:
@@ -56,7 +61,7 @@ class ExecutionConfig:
     # Reducer
     reducer: ReducerConfig
     # Transforms
-    transforms: list # List[TransformConfig]
+    transforms: List[TransformConfig]
     # Estimator
     estimator: EstimatorConfig
     # Extra
@@ -66,6 +71,9 @@ class ExecutionConfig:
 ################################################################################
 
 class Identity(Transform):
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
     def transform(self, X):
         return X
 
