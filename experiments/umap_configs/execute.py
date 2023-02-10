@@ -65,7 +65,7 @@ def load_mega(data_dir: Path, datasets: List[str] = None, label_columns: str = "
 
 
 # Non-parametric transform
-def do_transform(train_dset, test_dset, transforms: List[TransformConfig]):
+def do_transform(train_dset, test_dset, reducer_dset, transforms: List[TransformConfig]):
     transforms = []
     new_names = []
     for transform_config in transforms:
@@ -73,8 +73,8 @@ def do_transform(train_dset, test_dset, transforms: List[TransformConfig]):
         if transform_config.windowed:
             the_transform = WindowedTransform(
                 transform=the_transform,
-                fit_on=transform.windowed.fit_on,
-                transform_on=transform.windowed.transform_on
+                fit_on=transform_config.windowed.fit_on,
+                transform_on=transform_config.windowed.transform_on
             )
         transforms.append(the_transform)
         new_names.append(transform_config.name)
@@ -82,7 +82,9 @@ def do_transform(train_dset, test_dset, transforms: List[TransformConfig]):
     transformer = TransformMultiModalDataset(transforms=transforms, new_window_name_prefix=".".join(new_names))
     train_dset = transformer(train_dset)
     test_dset = transformer(test_dset)
-    return train_dset, test_dset
+    if reducer_dset:
+        reducer_dset = transformer(reducer_dset)
+    return train_dset, test_dset, reducer_dset
 
 
 def do_reduce(reducer_dset, train_dset, test_dset, reducer_config, reduce_on: str = "all"):
@@ -135,8 +137,8 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
     # print("Applying transforms...")
     # Transform
     transform_time = time.time()
-    # TODO the reducer_dset must also be reduced......
-    train_dset, test_dset = do_transform(train_dset, test_dset, config.transforms)
+    # TODO the reducer_dset must also be transformed......
+    train_dset, test_dset, reducer_dset = do_transform(train_dset, test_dset, reducer_dset, config.transforms)
     additional_info["transform_time"] = time.time()-transform_time
     # Reduce
     # print("Applying reducer...")
