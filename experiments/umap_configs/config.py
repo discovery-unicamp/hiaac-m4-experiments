@@ -3,6 +3,7 @@ from itertools import product
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Union, Optional
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 # Third-party imports
 from umap import UMAP
@@ -45,9 +46,16 @@ class EstimatorConfig:
     allow_multirun: bool
 
 @dataclass
+class ScalerConfig:
+    name: str
+    algorithm: str
+    kwargs: dict
+
+@dataclass
 class ExtraConfig:
     in_use_features: list
     reduce_on: str # valid values: all, sensor, axis
+    scale_on: str # valid values: self, train
 
 @dataclass
 class ExecutionConfig:
@@ -60,6 +68,8 @@ class ExecutionConfig:
     test_dataset: list # List[DatasetConfig]
     # Reducer
     reducer: ReducerConfig
+    # Scaler
+    scaler: ScalerConfig
     # Transforms
     transforms: List[TransformConfig]
     # Estimator
@@ -91,4 +101,10 @@ reducers_cls = {
 transforms_cls = {
     "identity": Identity,
     "fft": FFT,
+}
+
+scaler_cls = {
+    "identity": Identity,
+    "StandardScaler": StandardScaler,
+    "MinMaxScaler": MinMaxScaler,
 }

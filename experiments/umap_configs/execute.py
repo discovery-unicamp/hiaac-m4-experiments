@@ -22,8 +22,15 @@ from ray.util.multiprocessing import Pool
 
 # Librep imports
 from librep.base.transform import Transform
-from librep.datasets.har.loaders import MegaHARDataset_BalancedView20Hz, PandasMultiModalLoader
-from librep.datasets.multimodal import PandasMultiModalDataset, TransformMultiModalDataset, WindowedTransform
+from librep.datasets.har.loaders import (
+    MegaHARDataset_BalancedView20Hz,
+    PandasMultiModalLoader,
+)
+from librep.datasets.multimodal import (
+    PandasMultiModalDataset,
+    TransformMultiModalDataset,
+    WindowedTransform,
+)
 from librep.transforms.fft import FFT
 from librep.utils.workflow import SimpleTrainEvalWorkflow, MultiRunWorkflow
 from librep.estimators import RandomForestClassifier, SVC, KNeighborsClassifier
@@ -35,7 +42,8 @@ import random
 import tqdm
 
 import warnings
-warnings.filterwarnings('always')
+
+warnings.filterwarnings("always")
 
 labels_activity = {
     0: "sit",
@@ -47,50 +55,74 @@ labels_activity = {
     6: "stair up and down",
 }
 
+
 def load_yaml(path: Union[Path, str]) -> dict:
     path = Path(path)
     with path.open("r") as f:
         return yaml.load(f, Loader=yaml.CLoader)
 
-class Loader(PandasMultiModalLoader):
-    train_file="mega.csv"
-    validation_file=None
-    test_file=None
 
-def load_mega(data_dir: Path, datasets: List[str] = None, label_columns: str = "standard activity code", features: List[str] = None):
+class Loader(PandasMultiModalLoader):
+    train_file = "mega.csv"
+    validation_file = None
+    test_file = None
+
+
+def load_mega(
+    data_dir: Path,
+    datasets: List[str] = None,
+    label_columns: str = "standard activity code",
+    features: List[str] = None,
+):
     mega_dset = Loader(data_dir, download=False)
-    data = mega_dset.load(concat_all=True, load_validation=False, load_test=False, label=label_columns, features=features)
+    data = mega_dset.load(
+        concat_all=True,
+        load_validation=False,
+        load_test=False,
+        label=label_columns,
+        features=features,
+    )
 
     if datasets is not None:
         data.data = data.data.loc[data.data["dataset"].isin(datasets)]
 
-    data.data['standard activity code'] = data.data['standard activity code'].astype('int')
+    data.data["standard activity code"] = data.data["standard activity code"].astype(
+        "int"
+    )
     return data
 
 
 # Non-parametric transform
-def do_transform(train_dset, test_dset, reducer_dset, transform_configs: List[TransformConfig]):
+def do_transform(
+    train_dset, test_dset, reducer_dset, transform_configs: List[TransformConfig]
+):
     transforms = []
     new_names = []
     for transform_config in transform_configs:
-        the_transform = transforms_cls[transform_config.transform](**transform_config.kwargs)
+        the_transform = transforms_cls[transform_config.transform](
+            **transform_config.kwargs
+        )
         if transform_config.windowed:
             the_transform = WindowedTransform(
                 transform=the_transform,
                 fit_on=transform_config.windowed.fit_on,
-                transform_on=transform_config.windowed.transform_on
+                transform_on=transform_config.windowed.transform_on,
             )
         transforms.append(the_transform)
         new_names.append(transform_config.name)
 
-    transformer = TransformMultiModalDataset(transforms=transforms, new_window_name_prefix=".".join(new_names))
+    transformer = TransformMultiModalDataset(
+        transforms=transforms, new_window_name_prefix=".".join(new_names)
+    )
     train_dset = transformer(train_dset)
     test_dset = transformer(test_dset)
     reducer_dset = transformer(reducer_dset)
     return train_dset, test_dset, reducer_dset
 
 
-def do_reduce(reducer_dset, train_dset, test_dset, reducer_config, reduce_on: str = "all"):
+def do_reduce(
+    reducer_dset, train_dset, test_dset, reducer_config, reduce_on: str = "all"
+):
     if reduce_on == "all":
         reducer = reducers_cls[reducer_config.algorithm](**reducer_config.kwargs)
         reducer.fit(reducer_dset[:][0])
@@ -99,7 +131,9 @@ def do_reduce(reducer_dset, train_dset, test_dset, reducer_config, reduce_on: st
             fit_on=reducer_config.windowed.fit_on,
             transform_on=reducer_config.windowed.transform_on,
         )
-        transformer = TransformMultiModalDataset(transforms=[transform], new_window_name_prefix="reduced.")
+        transformer = TransformMultiModalDataset(
+            transforms=[transform], new_window_name_prefix="reduced."
+        )
         train_dset = transformer(train_dset)
         test_dset = transformer(test_dset)
         return train_dset, test_dset
@@ -107,7 +141,66 @@ def do_reduce(reducer_dset, train_dset, test_dset, reducer_config, reduce_on: st
         raise NotImplementedError(f"Reduce_on: {reduce_on} not implemented yet")
 
 
-def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: ExecutionConfig):
+def do_scaling(train_dset, test_dset, scaler_config, scale_on: str = "self"):
+    if scale_on == "self":
+        train_dset = TransformMultiModalDataset(
+            transforms=[
+                WindowedTransform(
+                    transform=scaler_cls[scaler_config.algorithm](
+                        **scaler_config.kwargs
+                    ),
+                    fit_on="all",
+                    transform_on="all",
+                )
+            ],
+            new_window_name_prefix="scaled.",
+        )(train_dset)
+        test_dset = TransformMultiModalDataset(
+            transforms=[
+                WindowedTransform(
+                    transform=scaler_cls[scaler_config.algorithm](
+                        **scaler_config.kwargs
+                    ),
+                    fit_on="all",
+                    transform_on="all",
+                )
+            ],
+            new_window_name_prefix="scaled.",
+        )(test_dset)
+        return train_dset, test_dset
+    elif scale_on == "train":
+        transform = scaler_cls[scaler_config.algorithm](**scaler_config.kwargs)
+        print(f"Scaling: {transform}")
+        transform.fit(train_dset[:][0])
+        train_dset = TransformMultiModalDataset(
+            transforms=[
+                WindowedTransform(
+                    transform=transform,
+                    fit_on=None,
+                    transform_on="all",
+                )
+            ],
+            new_window_name_prefix="scaled.",
+        )(train_dset)
+        test_dset = TransformMultiModalDataset(
+            transforms=[
+                WindowedTransform(
+                    transform=transform,
+                    fit_on=None,
+                    transform_on="all",
+                )
+            ],
+            new_window_name_prefix="scaled.",
+        )(test_dset)
+        return train_dset, test_dset
+
+    else:
+        raise ValueError(f"scale_on: {scale_on} is not vlaid")
+
+
+def _run(
+    root_data_dir: str, output_dir: str, experiment_name: str, config: ExecutionConfig
+):
     output_dir = Path(output_dir)
     final_results = []
     additional_info = dict()
@@ -117,36 +210,40 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
 
     load_time = time.time()
     train_dset = load_mega(
-        root_data_dir,
-        datasets=config.train_dataset,
-        features=features
+        root_data_dir, datasets=config.train_dataset, features=features
     )
     additional_info["train_size"] = len(train_dset)
     test_dset = load_mega(
-        root_data_dir,
-        datasets=config.test_dataset,
-        features=features
+        root_data_dir, datasets=config.test_dataset, features=features
     )
     additional_info["test_size"] = len(test_dset)
     reducer_dset = load_mega(
-        root_data_dir,
-        datasets=config.reducer_dataset,
-        features=features
+        root_data_dir, datasets=config.reducer_dataset, features=features
     )
     additional_info["reduce_size"] = len(reducer_dset)
-    additional_info["load_time"] = time.time()-load_time
-
+    additional_info["load_time"] = time.time() - load_time
 
     # print("Applying transforms...")
     # Transform
     transform_time = time.time()
-    train_dset, test_dset, reducer_dset = do_transform(train_dset, test_dset, reducer_dset, config.transforms)
-    additional_info["transform_time"] = time.time()-transform_time
+    train_dset, test_dset, reducer_dset = do_transform(
+        train_dset, test_dset, reducer_dset, config.transforms
+    )
+    additional_info["transform_time"] = time.time() - transform_time
     # Reduce
     # print("Applying reducer...")
     reduce_time = time.time()
-    train_dset, test_dset = do_reduce(reducer_dset, train_dset, test_dset, config.reducer, config.extra.reduce_on)
-    additional_info["reduce_time"] = time.time()-reduce_time
+    train_dset, test_dset = do_reduce(
+        reducer_dset, train_dset, test_dset, config.reducer, config.extra.reduce_on
+    )
+    additional_info["reduce_time"] = time.time() - reduce_time
+
+    scaling_time = time.time()
+    # print("Aplying scaling...")
+    train_dset, test_dset = do_scaling(
+        train_dset, test_dset, config.scaler, config.extra.scale_on
+    )
+    additional_info["scaling_time"] = time.time() - scaling_time
 
     # Create reporter
     reporter = ClassificationReport(
@@ -165,21 +262,18 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
         estimator_creation_kwags=config.estimator.kwargs,
         do_not_instantiate=False,
         do_fit=True,
-        evaluator=reporter
+        evaluator=reporter,
     )
 
     # Create a multi execution workflow
     num_runs = config.number_runs if config.estimator.allow_multirun else 1
-    runner = MultiRunWorkflow(
-        workflow=workflow,
-        num_runs=num_runs
-    )
+    runner = MultiRunWorkflow(workflow=workflow, num_runs=num_runs)
 
     # print("Run...")
     # Run and collect results
     classification_time = time.time()
     results = runner(train_dset, test_dset)
-    additional_info["classification_time"] = time.time()-classification_time
+    additional_info["classification_time"] = time.time() - classification_time
 
     # print("Saving...")
     # Create output directory
@@ -188,13 +282,14 @@ def _run(root_data_dir: str, output_dir: str, experiment_name: str, config: Exec
     values = {
         "experiment": asdict(config),
         "results": results,
-        "additional": additional_info
+        "additional": additional_info,
     }
 
     with output_file.open("w") as f:
         yaml.dump(values, f, indent=4, sort_keys=True)
 
     return results
+
 
 def run(args):
     root_data_dir: str = args[0]
@@ -216,10 +311,10 @@ def run(args):
             "results": None,
             "exception": str(e),
             "additional": dict(),
-            "ok": False
+            "ok": False,
         }
     finally:
-        result["additional"]["full_time"] = time.time()-start
+        result["additional"]["full_time"] = time.time() - start
         # print(f"Ended! Execution {config.execution_id} took {time.time()-start:.3f} seconds.")
         return result
 
@@ -237,7 +332,7 @@ if __name__ == "__main__":
         "execution_configs_dir",
         action="store",
         help="Directory with execution configs",
-        type=str
+        type=str,
     )
 
     parser.add_argument(
@@ -245,7 +340,7 @@ if __name__ == "__main__":
         action="store",
         default="experiment",
         help="Description of the experiment",
-        type=str
+        type=str,
     )
 
     parser.add_argument(
@@ -254,7 +349,7 @@ if __name__ == "__main__":
         action="store",
         help="Root data dir",
         type=str,
-        required=True
+        required=True,
     )
 
     parser.add_argument(
@@ -272,13 +367,13 @@ if __name__ == "__main__":
         default=None,
         help="Ray head node address. A local cluster will be started if false",
         type=str,
-        required=False
+        required=False,
     )
 
     parser.add_argument(
         "--skip-existing",
         action="store_true",
-        help="Skip executions that were already run"
+        help="Skip executions that were already run",
     )
 
     parser.add_argument(
@@ -286,7 +381,7 @@ if __name__ == "__main__":
         default=None,
         help="Start at execution config no..",
         type=int,
-        required=False
+        required=False,
     )
 
     parser.add_argument(
@@ -294,19 +389,22 @@ if __name__ == "__main__":
         default=None,
         help="End at execution config no..",
         type=int,
-        required=False
+        required=False,
     )
 
     args = parser.parse_args()
     print(args)
 
     output_path = Path(args.output_path) / args.exp_name
-    execution_configs = list(Path(args.execution_configs_dir).glob("*.yaml"))
+    execution_configs = sorted(list(Path(args.execution_configs_dir).glob("*.yaml")))
 
     if args.skip_existing:
-        to_keep_execution_ids = set([e.stem for e in execution_configs]).difference(set([o.stem for o in output_path.glob("*.yaml")]))
-        execution_configs = [e for e in execution_configs if e.stem in to_keep_execution_ids]
-
+        to_keep_execution_ids = set([e.stem for e in execution_configs]).difference(
+            set([o.stem for o in output_path.glob("*.yaml")])
+        )
+        execution_configs = [
+            e for e in execution_configs if e.stem in to_keep_execution_ids
+        ]
 
     # experiments = load_yaml(args.experiment_file)
     # experiments = [from_dict(data_class=ExecutionConfig, data=e) for e in experiments]
@@ -317,11 +415,12 @@ if __name__ == "__main__":
     print(f"There are {len(execution_configs)} experiments")
 
     start = time.time()
-    ray.init(args.address, logging_level=logging.ERROR)
+    ray.init(args.address) #, logging_level=logging.ERROR)
 
     pool = Pool()
-    iterator = pool.imap_unordered(
-        run, [(args.data_path, output_path, args.exp_name, e) for e in execution_configs],
+    iterator = pool.imap(
+        run,
+        [(args.data_path, output_path, args.exp_name, e) for e in execution_configs],
     )
     final_res = list(tqdm.tqdm(iterator, total=len(execution_configs)))
     print(f"Finished! It took {time.time()-start:.3f} seconds!")

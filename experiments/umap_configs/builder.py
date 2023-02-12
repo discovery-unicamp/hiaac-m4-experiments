@@ -20,7 +20,11 @@ from ray.util.multiprocessing import Pool
 # Librep imports
 from librep.base.transform import Transform
 from librep.datasets.har.loaders import MegaHARDataset_BalancedView20Hz
-from librep.datasets.multimodal import PandasMultiModalDataset, TransformMultiModalDataset, WindowedTransform
+from librep.datasets.multimodal import (
+    PandasMultiModalDataset,
+    TransformMultiModalDataset,
+    WindowedTransform,
+)
 from librep.transforms.fft import FFT
 from librep.utils.workflow import SimpleTrainEvalWorkflow, MultiRunWorkflow
 from librep.estimators import RandomForestClassifier, SVC, KNeighborsClassifier
@@ -28,14 +32,7 @@ from librep.metrics.report import ClassificationReport
 
 from config import *
 
-datasets_cls = [
-    "kuhar",
-    "motionsense",
-    "wisdm",
-    "uci",
-    "realworld",
-    "extrasensory"
-]
+datasets_cls = ["kuhar", "motionsense", "wisdm", "uci", "realworld", "extrasensory"]
 
 
 train_datasets = [
@@ -45,23 +42,9 @@ train_datasets = [
     "realworld",
 ]
 
-test_datasets = [
-    "kuhar",
-    "motionsense",
-    "wisdm",
-    "uci",
-    "realworld",
-    "extrasensory"
-]
+test_datasets = ["kuhar", "motionsense", "wisdm", "uci", "realworld", "extrasensory"]
 
-reducer_datasets = [
-    "kuhar",
-    "motionsense",
-    "wisdm",
-    "uci",
-    "realworld",
-    "extrasensory"
-]
+reducer_datasets = ["kuhar", "motionsense", "wisdm", "uci", "realworld", "extrasensory"]
 
 
 intra_datasets = [
@@ -85,6 +68,7 @@ def load_yaml(path: Union[Path, str]) -> dict:
     with path.open("r") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
+
 def parse_configs(config_file: Path):
     def check_keys(d: dict, keys: list, complement: str = ""):
         for k in keys:
@@ -94,11 +78,12 @@ def parse_configs(config_file: Path):
                 raise KeyError(f"Key '{k}' not in dict")
 
     config = load_yaml(config_file)
-    check_keys(config, ["reducers", "estimators", "transformers"])
+    check_keys(config, ["reducers", "estimators", "transformers", "scalers"])
 
     reducers = []
     transforms = []
     estimators = []
+    scalers = []
 
     # Parse reducers
     for reducer_name, reducer_dict in config["reducers"].items():
@@ -110,7 +95,7 @@ def parse_configs(config_file: Path):
             name=reducer_name,
             algorithm=algorithm,
             kwargs=reducer_dict.get("kwargs", {}),
-            windowed=reducer_dict.get("windowed", {})
+            windowed=reducer_dict.get("windowed", {}),
         )
         reducers.append(reducer_config)
 
@@ -118,7 +103,11 @@ def parse_configs(config_file: Path):
     for transform_chain_name, transform_list in config["transformers"].items():
         transform_chain = []
         for i, transform_dict in enumerate(transform_list):
-            check_keys(transform_dict, ["transform"], f"transformers.{transform_chain_name}.{i}")
+            check_keys(
+                transform_dict,
+                ["transform"],
+                f"transformers.{transform_chain_name}.{i}",
+            )
             transform = transform_dict["transform"]
             if transform not in transforms_cls:
                 raise ValueError(f"Invalid transform: {transform}")
@@ -126,7 +115,7 @@ def parse_configs(config_file: Path):
                 name=f"{transform_chain_name}.{i}",
                 transform=transform,
                 kwargs=transform_dict.get("kwargs", {}),
-                windowed=transform_dict.get("windowed", {})
+                windowed=transform_dict.get("windowed", {}),
             )
             transform_chain.append(transform_config)
         transforms.append(transform_chain)
@@ -141,41 +130,72 @@ def parse_configs(config_file: Path):
             name=estimator_name,
             algorithm=algorithm,
             kwargs=estimator_dict.get("kwargs", {}),
-            allow_multirun=reducer_dict.get("allow_multirun", True)
+            allow_multirun=reducer_dict.get("allow_multirun", True),
         )
         estimators.append(estimator_config)
 
-    return reducers, transforms, estimators
+    for scaler_name, scaler_dict in config["scalers"].items():
+        check_keys(scaler_dict, ["algorithm"], "estimators")
+        algorithm = scaler_dict["algorithm"]
+        if algorithm not in scaler_cls:
+            raise ValueError(f"Invalid scaler: {algorithm}")
+        scaler_config = ScalerConfig(
+            name=scaler_name,
+            algorithm=algorithm,
+            kwargs=scaler_dict.get("kwargs", {}),
+        )
+        scalers.append(scaler_config)
+
+    return reducers, transforms, estimators, scalers
 
 
-def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[TransformConfig], estimators: List[EstimatorConfig], runs:int):
+def build_experiments_grid(
+    reducers: List[ReducerConfig],
+    transforms: List[TransformConfig],
+    estimators: List[EstimatorConfig],
+    scalers: List[ScalerConfig],
+    runs: int,
+):
     executions = []
     count = 0
-    for i, (reducer_config, transform_config_list, estimator_config) in enumerate(product(reducers, transforms, estimators)):
-        trains = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) #+ list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4))
+    for i, (reducer_config, transform_config_list, estimator_config) in enumerate(
+        product(reducers, transforms, estimators)
+    ):
+        trains = list(combinations(train_datasets, r=1)) + list(
+            combinations(train_datasets, r=2)
+        )  # + list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4))
         tests = list(combinations(test_datasets, r=1))
         # reducers = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) #+ list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4)) + list(combinations(train_datasets, r=5))
         in_use_features = [
             ["accel-x", "accel-y", "accel-z", "gyro-x", "gyro-y", "gyro-z"],
             ["accel-x", "accel-y", "accel-z"],
-            ["gyro-x", "gyro-y", "gyro-z"]
+            ["gyro-x", "gyro-y", "gyro-z"],
         ]
-        reduce_on = ["all", ]#"sensor", "axis"]
-
+        reduce_on = [
+            "all",
+        ]  # "sensor", "axis"]
+        scale_on = ["train"]
 
         for intra in intra_datasets:
-            for _in_use_feat, _reduce_on, _reducers in product(in_use_features, reduce_on, intra_datasets):
+            for _in_use_feat, _reduce_on, _reducers, _scaler, _scaler_on in product(
+                in_use_features, reduce_on, intra_datasets, scalers, scale_on
+            ):
                 experiment = ExecutionConfig(
-                    execution_id=f"{count}",
+                    execution_id=f"{count}".zfill(6),
                     number_runs=runs,
                     # reducer_dataset=list(reducers),
                     reducer_dataset=list(_reducers["train"]),
                     train_dataset=list(intra["train"]),
                     test_dataset=list(intra["test"]),
                     reducer=reducer_config,
+                    scaler=_scaler,
                     transforms=transform_config_list,
                     estimator=estimator_config,
-                    extra=ExtraConfig(_in_use_feat, _reduce_on)
+                    extra=ExtraConfig(
+                        in_use_features=_in_use_feat,
+                        reduce_on=_reduce_on,
+                        scale_on=_scaler_on,
+                    ),
                 )
                 # print(experiment)
                 # print("-----")
@@ -229,10 +249,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "config_file",
-        action="store",
-        help="Configuration file to parse",
-        type=str
+        "config_file", action="store", help="Configuration file to parse", type=str
     )
 
     parser.add_argument(
@@ -241,7 +258,7 @@ if __name__ == "__main__":
         action="store",
         help="Output directory to store configs",
         type=str,
-        required=True
+        required=True,
     )
 
     parser.add_argument(
@@ -259,7 +276,7 @@ if __name__ == "__main__":
         default=5,
         action="store",
         help="Number of runs",
-        type=int
+        type=int,
     )
 
     parser.add_argument(
@@ -269,14 +286,16 @@ if __name__ == "__main__":
         default="grid",
         action="store",
         help="Strategy to generate experiments",
-        type=str
+        type=str,
     )
 
     args = parser.parse_args()
     print(args)
 
-    reducers, transforms, estimators = parse_configs(args.config_file)
-    executions = build_experiments_grid(reducers, transforms, estimators, args.number_runs)
+    reducers, transforms, estimators, scalers = parse_configs(args.config_file)
+    executions = build_experiments_grid(
+        reducers, transforms, estimators, scalers, args.number_runs
+    )
     print(f"There are {len(executions)} experiments!")
 
     output_path = Path(args.output)
@@ -284,6 +303,12 @@ if __name__ == "__main__":
     for e in executions:
         output_file = output_path / (str(e.execution_id) + ".yaml")
         with output_file.open("w") as f:
-            yaml.dump(asdict(e), f, encoding='utf-8', default_flow_style=False, Dumper=yaml.CDumper)
+            yaml.dump(
+                asdict(e),
+                f,
+                encoding="utf-8",
+                default_flow_style=False,
+                Dumper=yaml.CDumper,
+            )
 
     print(f"Configs saved to {output_path}")
