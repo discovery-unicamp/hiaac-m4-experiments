@@ -162,6 +162,7 @@ def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[Trans
         ]
         reduce_on = ["all", ]#"sensor", "axis"]
 
+
         for intra in intra_datasets:
             for _in_use_feat, _reduce_on, _reducers in product(in_use_features, reduce_on, intra_datasets):
                 experiment = ExecutionConfig(
