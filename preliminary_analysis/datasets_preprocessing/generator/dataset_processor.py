@@ -96,20 +96,20 @@ class Interpolate:
         features_to_select: Union[str, List[str]],
         original_fs: float,
         target_fs: float,
-        kind: str = 'cubic',
+        kind: str = "cubic",
     ):
         """
         Parameters
         ----------
         groupby_column : Union[str, List[str]]
             Nome da(s) coluna(s) a ser agrupada para reamostrar.
-            Normalmente agrupa-se por evento do usuário 
+            Normalmente agrupa-se por evento do usuário
             (senão reamostra o dataframe todo, com amostras de diferentes eventos e usuários)
         features_to_select : Union[str, List[str]]
             Nome da(s) coluna(s) a ser reamostrada.
         original_fs : float
             Frequência de amostragem original.
-        target_fs : float  
+        target_fs : float
             Frequência de amostragem desejada.
         kind : str, optional.
             Tipo de interpolação a ser usada, por padrão 'cubic'.
@@ -126,12 +126,10 @@ class Interpolate:
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         """Reamostra as colunas do dataframe.
-
         Parameters
         ----------
         df : pd.DataFrame
             O dataframe a ser reamostrado.
-
         Returns
         -------
         pd.DataFrame
@@ -147,11 +145,11 @@ class Interpolate:
                 arr = np.array([np.nan] * len(grouped_df))
                 time = np.arange(0, len(signal), 1) / self.original_fs
                 interplator = interpolate.interp1d(
-                    time, 
-                    signal, 
+                    time,
+                    signal,
                     kind=self.kind,
                 )
-                new_time = np.arange(0, time[-1], 1/self.target_fs)
+                new_time = np.arange(0, time[-1], 1 / self.target_fs)
                 resampled = interplator(new_time)
 
                 arr[: len(resampled)] = resampled
