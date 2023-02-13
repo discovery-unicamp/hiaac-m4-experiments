@@ -170,7 +170,7 @@ def do_scaling(train_dset, test_dset, scaler_config, scale_on: str = "self"):
         return train_dset, test_dset
     elif scale_on == "train":
         transform = scaler_cls[scaler_config.algorithm](**scaler_config.kwargs)
-        print(f"Scaling: {transform}")
+        # print(f"Scaling: {transform}")
         transform.fit(train_dset[:][0])
         train_dset = TransformMultiModalDataset(
             transforms=[
@@ -397,6 +397,13 @@ if __name__ == "__main__":
 
     output_path = Path(args.output_path) / args.exp_name
     execution_configs = sorted(list(Path(args.execution_configs_dir).glob("*.yaml")))
+    print(f"There are {len(execution_configs)} configs!")
+    
+    exp_from = args.start or 0
+    exp_to = args.end or len(execution_configs)
+    execution_configs = execution_configs[exp_from:exp_to]
+    print(f"There are {len(execution_configs)} experiments")
+
 
     if args.skip_existing:
         to_keep_execution_ids = set([e.stem for e in execution_configs]).difference(
@@ -406,13 +413,9 @@ if __name__ == "__main__":
             e for e in execution_configs if e.stem in to_keep_execution_ids
         ]
 
+    print(f"There still {len(execution_configs)} configs")
     # experiments = load_yaml(args.experiment_file)
     # experiments = [from_dict(data_class=ExecutionConfig, data=e) for e in experiments]
-
-    exp_from = args.start or 0
-    exp_to = args.end or len(execution_configs)
-    execution_configs = execution_configs[exp_from:exp_to]
-    print(f"There are {len(execution_configs)} experiments")
 
     start = time.time()
     ray.init(args.address) #, logging_level=logging.ERROR)
