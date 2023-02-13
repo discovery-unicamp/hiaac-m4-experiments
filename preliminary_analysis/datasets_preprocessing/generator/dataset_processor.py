@@ -60,9 +60,6 @@ class SplitGuaranteeingAllClassesPerSplit:
             train_df = dataframe.loc[dataframe[self.column_to_split].isin(train_values)]
             test_df = dataframe.loc[dataframe[self.column_to_split].isin(test_values)]
 
-            print("Train classes:", train_df[self.class_column].unique())
-            print("Test classes:", test_df[self.class_column].unique())
-
             if len(train_df[self.class_column].unique()) != len(class_values):
                 continue
             if len(test_df[self.class_column].unique()) != len(class_values):
