@@ -11,6 +11,27 @@ from typing import Tuple
 import random
 
 
+class FilterByCommonRows:
+    def __init__(self, match_columns: Union[str, List[str]]):
+        self.match_columns = (
+            match_columns if isinstance(match_columns, list) else [match_columns]
+        )
+
+    def __call__(
+        self, df1: pd.DataFrame, df2: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        common_rows = set(
+            df1[self.match_columns].itertuples(index=False, name=None)
+        ) & set(df2[self.match_columns].itertuples(index=False, name=None))
+        df1_filtered = df1[
+            df1[self.match_columns].apply(tuple, axis=1).isin(common_rows)
+        ]
+        df2_filtered = df2[
+            df2[self.match_columns].apply(tuple, axis=1).isin(common_rows)
+        ]
+        return df1_filtered, df2_filtered
+
+
 class SplitGuaranteeingAllClassesPerSplit:
     def __init__(
         self,
@@ -33,15 +54,11 @@ class SplitGuaranteeingAllClassesPerSplit:
 
         for _ in range(self.retries):
             random.shuffle(split_values)
-            train_values = split_values[: int(
-                len(split_values) * self.train_size)]
-            test_values = split_values[int(
-                len(split_values) * self.train_size):]
+            train_values = split_values[: int(len(split_values) * self.train_size)]
+            test_values = split_values[int(len(split_values) * self.train_size) :]
 
-            train_df = dataframe.loc[dataframe[self.column_to_split].isin(
-                train_values)]
-            test_df = dataframe.loc[dataframe[self.column_to_split].isin(
-                test_values)]
+            train_df = dataframe.loc[dataframe[self.column_to_split].isin(train_values)]
+            test_df = dataframe.loc[dataframe[self.column_to_split].isin(test_values)]
 
             if len(train_df[self.class_column].unique()) != len(class_values):
                 continue
@@ -158,8 +175,7 @@ class Interpolate:
 
 
 class AddGravityColumn:
-    """Adiciona uma coluna com a gravidade em cada eixo.
-    """
+    """Adiciona uma coluna com a gravidade em cada eixo."""
 
     def __init__(self, axis_columns: List[str], gravity_columns: List[str]):
         """
@@ -192,8 +208,7 @@ class AddGravityColumn:
 
 
 class Convert_G_to_Ms2:
-    """Converte a aceleração de g para m/s².
-    """
+    """Converte a aceleração de g para m/s²."""
 
     def __init__(self, axis_columns: List[str], g_constant: float = constants.g):
         """
@@ -226,8 +241,7 @@ class Convert_G_to_Ms2:
 
 
 class ButterworthFilter:
-    """Aplica o filtro Butterworth para remoção da gravidade.
-    """
+    """Aplica o filtro Butterworth para remoção da gravidade."""
 
     def __init__(self, axis_columns: List[str], fs: float):
         """
@@ -261,8 +275,7 @@ class ButterworthFilter:
 
 
 class CalcTimeDiffMean:
-    """Calcula a differença entre os intervalos de tempo.
-    """
+    """Calcula a differença entre os intervalos de tempo."""
 
     def __init__(
         self,
@@ -314,8 +327,7 @@ class CalcTimeDiffMean:
 
 
 class PlotDiffMean:
-    """Imprime o histograma da diferença entre os intervalos de tempo.
-    """
+    """Imprime o histograma da diferença entre os intervalos de tempo."""
 
     def __init__(self, column_to_plot: str = "diff"):
         """
@@ -357,7 +369,7 @@ class Resampler:
         ----------
         groupby_column : Union[str, List[str]]
             Nome da(s) coluna(s) a ser agrupada para reamostrar.
-            Normalmente agrupa-se por evento do usuário 
+            Normalmente agrupa-se por evento do usuário
             (senão reamostra o dataframe todo, com amostras de diferentes eventos e usuários)
         features_to_select : Union[str, List[str]]
             Nome da(s) coluna(s) a ser reamostrada.
@@ -412,21 +424,20 @@ class ResamplerPoly:
         features_to_select: Union[str, List[str]],
         up: float,
         down: float,
-        padtype: str = 'mean',
-
+        padtype: str = "mean",
     ):
         """
         Parameters
         ----------
         groupby_column : Union[str, List[str]]
             Nome da(s) coluna(s) a ser agrupada para reamostrar.
-            Normalmente agrupa-se por evento do usuário 
+            Normalmente agrupa-se por evento do usuário
             (senão reamostra o dataframe todo, com amostras de diferentes eventos e usuários)
         features_to_select : Union[str, List[str]]
             Nome da(s) coluna(s) a ser reamostrada.
         up : float
             Fator de aumento da frequencia.
-        down : float   
+        down : float
             Fator de redução da frequencia.
         padtype : str, optional
             Tipo de preenchimento, por padrão 'mean'.
@@ -485,13 +496,14 @@ class Windowize:
         samples_per_window: int,
         samples_per_overlap: int,
         groupby_column: Union[str, List[str]],
+        divisible_by: int = None,
     ):
         """_summary_
 
         Parameters
         ----------
         features_to_select : List[str]
-            Features que serão utilizadas para realizar o janelamento 
+            Features que serão utilizadas para realizar o janelamento
             (serão transpostas de linhas para colunas e adicionado um sufixo de indice).
         samples_per_window : int
             Numero de amostras consecutivas que serão utilizadas para realizar o janelamento.
@@ -510,6 +522,7 @@ class Windowize:
         self.samples_per_window = samples_per_window
         self.samples_per_overlap = samples_per_overlap
         self.groupby_column = groupby_column
+        self.divisible_by = divisible_by
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         """Realiza o janelamento nos das colunas do dataframe.
@@ -526,33 +539,45 @@ class Windowize:
         """
         values = []
         other_columns = set(df.columns) - set(self.features_to_select)
-        for key, grouped_df in tqdm.tqdm(df.groupby(self.groupby_column), desc="Creating windows"):
-            for start in range(
-                0, len(grouped_df), self.samples_per_window -
-                self.samples_per_overlap
+
+        for key, grouped_df in tqdm.tqdm(
+            df.groupby(self.groupby_column), desc="Creating windows"
+        ):
+            for i, start in enumerate(
+                range(
+                    0,
+                    len(grouped_df),
+                    self.samples_per_window - self.samples_per_overlap,
+                )
             ):
-                window_df = grouped_df[start: start +
-                                       self.samples_per_window].reset_index(drop=True)
+                window_df = grouped_df[
+                    start : start + self.samples_per_window
+                ].reset_index(drop=True)
+                if len(window_df) != self.samples_per_window:
+                    continue
+                if window_df.isnull().values.any():
+                    continue
+
                 features = window_df[self.features_to_select].unstack()
                 features.index = features.index.map(
                     lambda a: f"{a[0]}-{(a[1])%(self.samples_per_window)}"
                 )
                 for column in other_columns:
                     features[column] = window_df[column].iloc[0]
+                features["window"] = i
                 values.append(features)
-        return pd.concat(values, axis=1).T.dropna().reset_index(drop=True)
+        return pd.concat(values, axis=1).T.reset_index(drop=True)
 
 
 class AddStandardActivityCode:
-    """Adiciona a coluna "standard activity code" ao dataframe.
-    """
+    """Adiciona a coluna "standard activity code" ao dataframe."""
 
     def __init__(self, codes_map: dict):
         """
         Parameters
         ----------
         codes_map : dict
-            Dicionário com o código da atividade (do conjunto de dados original) 
+            Dicionário com o código da atividade (do conjunto de dados original)
             como chave e o código da atividade padrão como valor
         """
         self.codes_map = codes_map
@@ -575,8 +600,7 @@ class AddStandardActivityCode:
 
 
 class RenameColumns:
-    """Renomeia colunas do dataframe.
-    """
+    """Renomeia colunas do dataframe."""
 
     def __init__(self, columns_map: dict):
         """
@@ -605,15 +629,14 @@ class RenameColumns:
 
 
 class Pipeline:
-    """Pipeline de transformações de dados.
-    """
+    """Pipeline de transformações de dados."""
 
     def __init__(self, transforms: Callable[[pd.DataFrame], pd.DataFrame]):
         """
         Parameters
         ----------
         transforms : Callable[[pd.DataFrame], pd.DataFrame]
-            Lista de transformações a serem executadas. 
+            Lista de transformações a serem executadas.
             As transformações devem ser objetos chamáveis, isto é, que implementam o método __call__.
             O método __call__ deve receber um dataframe como parâmetro e retornar um dataframe.
         """

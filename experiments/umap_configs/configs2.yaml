@@ -78,9 +78,22 @@ estimators:
       n_estimators: 100
     allow_multirun: true
 
+  svm:
+    algorithm: SVM
+    allow_multirun: false
+
+  knn-5:
+    algorithm: KNN
+    kwargs:
+      n_neighbors: 5
+    allow_multirun: false
+
 transformers:
   no_transform:
     - transform: identity
+      windowed:
+        fit_on: null
+        transform_on: all
 
   with_fft_all:
     - transform: fft
@@ -88,4 +101,4 @@ transformers:
         centered: True
       windowed:
         fit_on: null
-        transform_on: all
+        transform_on: window

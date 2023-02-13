@@ -64,6 +64,21 @@ reducer_datasets = [
 ]
 
 
+intra_datasets = [
+    {
+        "train": ["kuhar.train", "kuhar.validation"],
+        "test": ["kuhar.test"],
+    },
+    {
+        "train": ["motionsense.train", "motionsense.validation"],
+        "test": ["motionsense.test"],
+    },
+    {
+        "train": ["uci.train", "uci.validation"],
+        "test": ["uci.test"],
+    },
+]
+
 
 def load_yaml(path: Union[Path, str]) -> dict:
     path = Path(path)
@@ -139,7 +154,7 @@ def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[Trans
     for i, (reducer_config, transform_config_list, estimator_config) in enumerate(product(reducers, transforms, estimators)):
         trains = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) #+ list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4))
         tests = list(combinations(test_datasets, r=1))
-        reducers = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) #+ list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4)) + list(combinations(train_datasets, r=5))
+        # reducers = list(combinations(train_datasets, r=1)) + list(combinations(train_datasets, r=2)) #+ list(combinations(train_datasets, r=3)) + list(combinations(train_datasets, r=4)) + list(combinations(train_datasets, r=5))
         in_use_features = [
             ["accel-x", "accel-y", "accel-z", "gyro-x", "gyro-y", "gyro-z"],
             ["accel-x", "accel-y", "accel-z"],
@@ -147,22 +162,61 @@ def build_experiments_grid(reducers: List[ReducerConfig], transforms: List[Trans
         ]
         reduce_on = ["all", ]#"sensor", "axis"]
 
-        for j, (_train_datasets, _test_datasets, _reducer_datasets, _in_use_feat, _reduce_on) in enumerate(product(trains, tests, reducers, in_use_features, reduce_on)):
-            experiment = ExecutionConfig(
-                execution_id=f"{count}",
-                number_runs=runs,
-                reducer_dataset=list(_reducer_datasets),
-                train_dataset=list(_train_datasets),
-                test_dataset=list(_test_datasets),
-                reducer=reducer_config,
-                transforms=transform_config_list,
-                estimator=estimator_config,
-                extra=ExtraConfig(_in_use_feat, _reduce_on)
-            )
-            # print(experiment)
-            # print("-----")
-            count += 1
-            executions.append(experiment)
+        for intra in intra_datasets:
+            for _in_use_feat, _reduce_on, _reducers in product(in_use_features, reduce_on, intra_datasets):
+                experiment = ExecutionConfig(
+                    execution_id=f"{count}",
+                    number_runs=runs,
+                    # reducer_dataset=list(reducers),
+                    reducer_dataset=list(_reducers["train"]),
+                    train_dataset=list(intra["train"]),
+                    test_dataset=list(intra["test"]),
+                    reducer=reducer_config,
+                    transforms=transform_config_list,
+                    estimator=estimator_config,
+                    extra=ExtraConfig(_in_use_feat, _reduce_on)
+                )
+                # print(experiment)
+                # print("-----")
+                count += 1
+                executions.append(experiment)
+
+        # for intra in combinations(intra_datasets, 2):
+        #     for _in_use_feat, _reduce_on, _reducers in product(in_use_features, reduce_on, reducers):
+        #         to_reduce = list(intra[0]["train"]) + list(intra[1]["train"])
+        #         experiment = ExecutionConfig(
+        #             execution_id=f"{count}",
+        #             number_runs=runs,
+        #             # reducer_dataset=list(reducers),
+        #             reducer_dataset=to_reduce,
+        #             train_dataset=list(intra[0]["train"]),
+        #             test_dataset=list(intra[0]["test"]),
+        #             reducer=reducer_config,
+        #             transforms=transform_config_list,
+        #             estimator=estimator_config,
+        #             extra=ExtraConfig(_in_use_feat, _reduce_on)
+        #         )
+        #         # print(experiment)
+        #         # print("-----")
+        #         count += 1
+        #         executions.append(experiment)
+
+        # for j, (_train_datasets, _test_datasets, _reducer_datasets, _in_use_feat, _reduce_on) in enumerate(product(trains, tests, reducers, in_use_features, reduce_on)):
+        #     experiment = ExecutionConfig(
+        #         execution_id=f"{count}",
+        #         number_runs=runs,
+        #         reducer_dataset=list(_reducer_datasets),
+        #         train_dataset=list(_train_datasets),
+        #         test_dataset=list(_test_datasets),
+        #         reducer=reducer_config,
+        #         transforms=transform_config_list,
+        #         estimator=estimator_config,
+        #         extra=ExtraConfig(_in_use_feat, _reduce_on)
+        #     )
+        #     # print(experiment)
+        #     # print("-----")
+        #     count += 1
+        #     executions.append(experiment)
     return executions
 
 
