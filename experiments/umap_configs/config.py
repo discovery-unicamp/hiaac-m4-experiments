@@ -19,37 +19,30 @@ class WindowedConfig:
     transform_on: Optional[str]
 
 @dataclass
-class DatasetConfig:
-    dataset: str        # Dataset name
-    concat: str         # None, all, train/val
-    label_columns: str  #
-
-@dataclass
 class ReducerConfig:
     name: str
     algorithm: str
-    kwargs: dict
-    windowed: WindowedConfig
+    kwargs: Optional[dict]
 
 @dataclass
 class TransformConfig:
     name: str
     transform: str
-    kwargs: dict
-    windowed: WindowedConfig
+    kwargs: Optional[dict]
+    windowed: Optional[WindowedConfig]
 
 @dataclass
 class EstimatorConfig:
     name: str
     algorithm: str
-    kwargs: dict
+    kwargs: Optional[dict]
     allow_multirun: bool
 
 @dataclass
 class ScalerConfig:
     name: str
     algorithm: str
-    kwargs: dict
+    kwargs: Optional[dict]
 
 @dataclass
 class ExtraConfig:
@@ -62,16 +55,16 @@ class ExecutionConfig:
     # Control variables
     execution_id: str
     number_runs: int
-    # Dataset
-    reducer_dataset: list # List[DatasetConfig]
-    train_dataset: list # List[DatasetConfig]
-    test_dataset: list # List[DatasetConfig]
-    # Reducer
-    reducer: ReducerConfig
-    # Scaler
-    scaler: ScalerConfig
+    # Datasets to use
+    reducer_dataset: Optional[List[str]]
+    train_dataset: List[str]
+    test_dataset: List[str]
     # Transforms
-    transforms: List[TransformConfig]
+    transforms: Optional[List[TransformConfig]]
+    # Reducer
+    reducer: Optional[ReducerConfig]
+    # Scaler
+    scaler: Optional[ScalerConfig]
     # Estimator
     estimator: EstimatorConfig
     # Extra
