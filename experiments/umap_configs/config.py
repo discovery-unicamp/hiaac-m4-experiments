@@ -13,6 +13,9 @@ from librep.base.transform import Transform
 from librep.transforms.fft import FFT
 from librep.estimators import RandomForestClassifier, SVC, KNeighborsClassifier
 
+
+# YAML valid confuguration keys
+
 @dataclass
 class WindowedConfig:
     fit_on: Optional[str]
@@ -80,6 +83,7 @@ class Identity(Transform):
     def transform(self, X):
         return X
 
+
 estimator_cls = {
     "SVM": SVC,
     "KNN": KNeighborsClassifier,
@@ -100,4 +104,26 @@ scaler_cls = {
     "identity": Identity,
     "StandardScaler": StandardScaler,
     "MinMaxScaler": MinMaxScaler,
+}
+
+labels_activity = {
+    0: "sit",
+    1: "stand",
+    2: "walk",
+    3: "stair up",
+    4: "stair down",
+    5: "run",
+    6: "stair up and down",
+}
+
+datasets = {
+    # KuHar
+    "kuhar.raw_balanced": Path("KuHar/raw_balanced"),
+    "kuhar.standartized_balanced": Path("KuHar/standartized_balanced"),
+    # MotionSense
+    "motionsense.raw_balanced": Path("MotionSense/raw_balanced"),
+    "motionsense.standartized_balanced": Path("MotionSense/standartized_balanced"),
+    # UCI
+    "uci.raw_balanced": Path("UCI/raw_balanced"),
+    "uci.standartized_balanced": Path("UCI/standartized_balanced"),
 }
