@@ -43,7 +43,8 @@ def main(results_dir: Path, output: Path):
             "reducer_datasets": ", ".join(result["experiment"]["reducer_dataset"]),
             "train_datasets": ", ".join(result["experiment"]["train_dataset"]),
             "test_datasets": ", ".join(result["experiment"]["test_dataset"]),
-            "sensors used": ", ".join(result["experiment"]["extra"]["in_use_features"])
+            "sensors used": ", ".join(result["experiment"]["extra"]["in_use_features"]),
+            "scaler": result["experiment"]["scaler"]["name"]
         }
 
         n_components = 0
@@ -51,14 +52,13 @@ def main(results_dir: Path, output: Path):
             n_components = result["experiment"]["reducer"]["kwargs"]["n_components"]
         fmt_result["umap components"] = n_components
 
+        # for sensor in ["accel", "gyro"]:
+        #     for axis in ["x", "y", "z"]:
+        #         fmt_result[f"use {sensor}-{axis}"] = f"{sensor}-{axis}" in result["experiment"]["extra"]["in_use_features"]
 
-        for sensor in ["accel", "gyro"]:
-            for axis in ["x", "y", "z"]:
-                fmt_result[f"use {sensor}-{axis}"] = f"{sensor}-{axis}" in result["experiment"]["extra"]["in_use_features"]
-
-        for in_use_set, name in [("reducer_dataset", "reduce"), ("train_dataset", "train"), ("test_dataset", "test")]:
-            for dataset in datasets:
-                fmt_result[f"{dataset} - {name}"] = dataset in result["experiment"][in_use_set]
+        # for in_use_set, name in [("reducer_dataset", "reduce"), ("train_dataset", "train"), ("test_dataset", "test")]:
+        #     for dataset in datasets:
+        #         fmt_result[f"{dataset} - {name}"] = dataset in result["experiment"][in_use_set]
 
         fmt_result["accuracy (mean)"] = np.mean([x["accuracy"] for r in result["results"]["runs"] for x in r["result"]])
         fmt_result["accuracy (std)"] = np.std([x["accuracy"] for r in result["results"]["runs"] for x in r["result"]])

@@ -1,0 +1,43 @@
+estimator:
+  algorithm: KNN
+  allow_multirun: true
+  kwargs:
+    n_neighbors: 5
+  name: knn-5
+execution_id: '001403'
+extra:
+  in_use_features:
+  - gyro-x
+  - gyro-y
+  - gyro-z
+  reduce_on: all
+  scale_on: train
+number_runs: 5
+reducer:
+  algorithm: umap
+  kwargs:
+    n_components: 4
+  name: umap-4-all
+  windowed:
+    fit_on: null
+    transform_on: all
+reducer_dataset:
+- uci.train
+- uci.validation
+scaler:
+  algorithm: MinMaxScaler
+  kwargs: {}
+  name: minmax_scaler
+test_dataset:
+- kuhar.test
+train_dataset:
+- kuhar.train
+- kuhar.validation
+transforms:
+- kwargs:
+    centered: true
+  name: with_fft_all.0
+  transform: fft
+  windowed:
+    fit_on: null
+    transform_on: window
