@@ -27,10 +27,10 @@ The execution consists in two steps:
 Once the experiments are written, the easiest way to execute the script is using:
 
 ```
-python execute.py <experiments_dir> --data-path <path_to_data_root> --exp-name my-experiment-1 --skip-existing 
+python execute.py <experiments_dir> --data-path <path_to_data_root> --run-name my-experiment-run-1 --skip-existing 
 ```
 
-Where the `experiments_dir` is the path where configuration files are stored and the `path_to_data_root` is the path to the root of the datasets. The `--skip-existing` option will skip the execution of the experiment if the results already exists. Finally, the `--exp-name` is the symbolic name of the execution of the experiment.
+Where the `experiments_dir` is the path where configuration files are stored and the `path_to_data_root` is the path to the root of the datasets. The `--skip-existing` option will skip the execution of the experiment if the results already exists. Finally, the `--run-name` is the symbolic name of the execution run  of the experiment.
 
 The script will execute each configuration file sequentially or parallel, if using `--ray` option(it also allows distributed execution in ray clusters). The results will be stored in the `results` folder. More options and information about the execution can be found executing `python execute.py --help`.
 

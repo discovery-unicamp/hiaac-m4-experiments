@@ -699,7 +699,7 @@ def run_single_thread(args: Any, execution_config_files: List[PathLike], output_
         Output path where the results will be stored.
     """    
     for e in tqdm.tqdm(execution_config_files, desc="Executing experiments"):
-        run_wrapper((args.data_path, output_path, args.exp_name, e))
+        run_wrapper((args.data_path, output_path, args.run_name, e))
 
 
 def run_ray(args: Any, execution_config_files: List[PathLike], output_path: PathLike):
@@ -719,7 +719,7 @@ def run_ray(args: Any, execution_config_files: List[PathLike], output_path: Path
     iterator = pool.imap(
         run_wrapper,
         [
-            (args.data_path, output_path, args.exp_name, e)
+            (args.data_path, output_path, args.run_name, e)
             for e in execution_config_files
         ],
     )
@@ -746,10 +746,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--exp-name",
+        "--run-name",
         action="store",
-        default="experiment",
-        help="Description of the experiment",
+        default="execution_1",
+        help="Description of the experiment run",
         type=str,
     )
 
@@ -829,7 +829,7 @@ if __name__ == "__main__":
     )
 
     # ------ Create output path ------
-    output_path = Path(args.output_path) / args.exp_name
+    output_path = Path(args.output_path) / args.run_name
 
     # ------ Read and filter execution configs ------
     # Load configs from directory (sorted)
