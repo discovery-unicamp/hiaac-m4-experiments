@@ -91,6 +91,7 @@ The standardization codes from notebooks usually comprise the following steps (*
 - A serial column, which represents the attempt that the collection was made (`serial` column), if provided. For instance, if the user has a time series running in the morning and another in the afternoon, it will be two different serial numbers.
 - A CSV or file column, which represents the file that the row was extracted from (`csv` column). 
 - An index column, that is, a column that represents the row index from the CSV file (`index` column).
+- Any other column that may be useful for the standardization process or metadata.
 2. Create the operator objects.
 3. Crete the pipeline object, passing the operator object list as parameters.
 4. Execute the pipeline, passing the dataframe as a parameter.
