@@ -69,9 +69,10 @@ The code is divided into four main parts:
 # Uncomment to remove warnings
 # warnings.filterwarnings("always")
 
+
 class catchtime:
-    """Utilitary class to measure time in a `with` python statement.
-    """
+    """Utilitary class to measure time in a `with` python statement."""
+
     def __enter__(self):
         self.t = time.time()
         return self
@@ -123,7 +124,7 @@ def load_datasets(
         "gyro-z",
     ),
 ) -> ArrayMultiModalDataset:
-    """Utilitary function to load the datasets. 
+    """Utilitary function to load the datasets.
     It load the datasets from specified in the `datasets_to_load` parameter.
     The datasets specified are concatenated into a single ArrayMultiModalDataset.
     This dataset is then returned.
@@ -160,7 +161,7 @@ def load_datasets(
     ...         "motionsense.standartized_balanced[validation]",
     ...     ],
     ... )
-    """    
+    """
     # Transform it to a Path object
     root_dir = Path(root_dir)
     dset_names = set()
@@ -236,7 +237,7 @@ def do_transform(
     -------
     List[MultiModalDataset]
         The transformed datasets.
-    """    
+    """
     new_datasets = []
     # Loop over the datasets
     for dset in datasets:
@@ -265,7 +266,7 @@ def do_transform(
                     fit_on=None,
                     transform_on="all",
                 )
-            # Create the list of transforms to apply to the dataset 
+            # Create the list of transforms to apply to the dataset
             transforms.append(the_transform)
             if keep_suffixes:
                 new_names.append(transform_config.name)
@@ -290,7 +291,7 @@ def do_reduce(
     reduce_on: str = "all",
     suffix: str = "reduced.",
 ) -> List[MultiModalDataset]:
-    """Utilitary function to perform dimensionality reduce to a list of 
+    """Utilitary function to perform dimensionality reduce to a list of
     datasets. The first dataset will be used to fit the reducer. And the
     reducer will be applied to the remaining datasets.
 
@@ -364,6 +365,7 @@ def do_reduce(
             "Invalid reduce_on value. Must be one of: 'all', 'axis', 'sensor"
         )
 
+
 # Scaling transform
 def do_scaling(
     datasets: List[MultiModalDataset],
@@ -372,7 +374,7 @@ def do_scaling(
     suffix: str = "scaled.",
 ) -> List[MultiModalDataset]:
     """Utilitary function to perform scaling to a list of datasets.
-    If scale_on is "self", the scaling will be fit and transformed applied 
+    If scale_on is "self", the scaling will be fit and transformed applied
     to each dataset. If scale_on is "train", the scaling will be fit to the
     first dataset and then, the scaling will be applied to all the datasets.
     (including the first one, that is used to fit the model).
@@ -403,7 +405,7 @@ def do_scaling(
     ValueError
         - If the scale_on value is invalid.
     """
-    # 
+    #
     kwargs = scaler_config.kwargs or {}
     if scale_on == "self":
         new_datasets = []
@@ -464,16 +466,16 @@ def run_experiment(
     config_to_execute: ExecutionConfig,
 ) -> dict:
     """This function is the wrapper that runs the experiment.
-    The experiment is defined by the config_to_execute parameter, 
+    The experiment is defined by the config_to_execute parameter,
     which controls the experiment execution.
 
     This code runs the following steps (in order):
     1. Load the datasets
-    2. Perform the non-parametric transformations, if any, using `do_transform` 
+    2. Perform the non-parametric transformations, if any, using `do_transform`
         function. The transforms are specified by `config_to_execute.transforms`
         which is a list of `TransformConfig` objects.
     3. Perform the parametric transformations, if any, using `do_reduce` function.
-        The reducer algorithm and parameters are specified by 
+        The reducer algorithm and parameters are specified by
         `config_to_execute.reducers` which `ReducerConfig` object.
     4. Perform the scaling, if any, using `do_scaling` function. The scaler
         algorithm and parameters are specified by `config_to_execute.scaler`
@@ -499,7 +501,7 @@ def run_experiment(
     ------
     ValueError
         If the reducer is specified but the reducer_dataset is not specified.
-    """    
+    """
     # Some sanity checks
     if (
         config_to_execute.reducer is not None
@@ -545,7 +547,6 @@ def run_experiment(
     additional_info["train_size"] = len(train_dset)
     additional_info["test_size"] = len(test_dset)
     additional_info["reduce_size"] = len(reducer_dset) if reducer_dset else 0
-
 
     # ----------- 2. Do the non-parametric transform on train, test and reducer datasets ------------
 
@@ -653,7 +654,6 @@ def run_wrapper(args) -> dict:
         A list of arguments, in the following order:
         - root_data_dir: Path (the root directory where the datasets are stored)
         - output_dir: Path (the directory where the results will be stored)
-        - experiment_name: str (the name of the experiment)
         - yaml_config_file: Path (the path to the yaml file containing the experiment configuration)
 
     Returns
@@ -664,8 +664,7 @@ def run_wrapper(args) -> dict:
     # Unpack arguments
     root_data_dir: Path = Path(args[0])
     output_dir: Path = Path(args[1])
-    experiment_name: str = args[2]
-    yaml_config_file: Path = Path(args[3])
+    yaml_config_file: Path = Path(args[2])
     result = dict()
     try:
         # Load config
@@ -673,8 +672,6 @@ def run_wrapper(args) -> dict:
         logging.info(f"Starting execution {config.execution_id}...")
 
         # Create output file
-        output_dir = output_dir / experiment_name
-        output_dir.mkdir(parents=True, exist_ok=True)
         experiment_output_file = output_dir / f"{config.execution_id}.yaml"
 
         # Run experiment
@@ -686,7 +683,9 @@ def run_wrapper(args) -> dict:
         return result
 
 
-def run_single_thread(args: Any, execution_config_files: List[PathLike], output_path: PathLike):
+def run_single_thread(
+    args: Any, execution_config_files: List[PathLike], output_path: PathLike
+):
     """Runs the experiments sequentially, without parallelization.
 
     Parameters
@@ -697,9 +696,9 @@ def run_single_thread(args: Any, execution_config_files: List[PathLike], output_
         List of configuration files to execute.
     output_path : PathLike
         Output path where the results will be stored.
-    """    
+    """
     for e in tqdm.tqdm(execution_config_files, desc="Executing experiments"):
-        run_wrapper((args.data_path, output_path, args.run_name, e))
+        run_wrapper((args.data_path, output_path, e))
 
 
 def run_ray(args: Any, execution_config_files: List[PathLike], output_path: PathLike):
@@ -718,17 +717,14 @@ def run_ray(args: Any, execution_config_files: List[PathLike], output_path: Path
     pool = Pool()
     iterator = pool.imap(
         run_wrapper,
-        [
-            (args.data_path, output_path, args.run_name, e)
-            for e in execution_config_files
-        ],
+        [(args.data_path, output_path, e) for e in execution_config_files],
     )
     final_res = list(
         tqdm.tqdm(
             iterator, total=len(execution_config_files), desc="Executing experiments"
         )
     )
-    
+
 
 if __name__ == "__main__":
     # ray.init(address="192.168.15.97:6379")
@@ -741,14 +737,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "execution_configs_dir",
         action="store",
-        help="Directory with execution configs",
+        help="Directory with execution configuration files in YAML format",
         type=str,
     )
 
     parser.add_argument(
         "--run-name",
         action="store",
-        default="execution_1",
+        default="execution",
         help="Description of the experiment run",
         type=str,
     )
@@ -757,7 +753,7 @@ if __name__ == "__main__":
         "-d",
         "--data-path",
         action="store",
-        help="Root data dir",
+        help="Root data dir where the datasets are stored",
         type=str,
         required=True,
     )
@@ -772,14 +768,14 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--ray", action="store_true", help="Run using ray (parallel execution)"
+        "--ray", action="store_true", help="Run using ray (parallel/distributed execution)"
     )
 
     parser.add_argument(
         "--address",
         action="store",
         default=None,
-        help="Ray head node address. A local cluster will be started if false",
+        help="Ray head node address (cluster). A local cluster will be started if nothing is informed",
         type=str,
         required=False,
     )
@@ -787,13 +783,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--skip-existing",
         action="store_true",
-        help="Skip executions that were already run",
+        help="Skip executions that were already run, that is, have something in the output path",
     )
 
     parser.add_argument(
         "--start",
         default=None,
-        help="Start at execution config no..",
+        help="Number of execution config to start",
         type=int,
         required=False,
     )
@@ -801,7 +797,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--end",
         default=None,
-        help="End at execution config no..",
+        help="Number of execution config to end",
         type=int,
         required=False,
     )
@@ -810,7 +806,7 @@ if __name__ == "__main__":
         "-v",
         "--verbose",
         action="count",
-        help="Enable verbosity: 1=INFO, 2=Debug",
+        help="Enable verbosity. Multiples -v increase level: 1=INFO, 2=Debug",
         default=0,
     )
 
@@ -830,6 +826,7 @@ if __name__ == "__main__":
 
     # ------ Create output path ------
     output_path = Path(args.output_path) / args.run_name
+    output_path.mkdir(parents=True, exist_ok=True)
 
     # ------ Read and filter execution configs ------
     # Load configs from directory (sorted)

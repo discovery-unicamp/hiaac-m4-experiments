@@ -13,8 +13,12 @@ from librep.base.transform import Transform
 from librep.transforms.fft import FFT
 from librep.estimators import RandomForestClassifier, SVC, KNeighborsClassifier
 
+################################################################################
+# Configuration classes
+################################################################################
 
-# YAML valid confuguration keys
+# YAML valid confuguration keys. 
+# The main experiment configuration class is `ExecutionConfig`
 
 @dataclass
 class WindowedConfig:
@@ -75,6 +79,8 @@ class ExecutionConfig:
 
 
 ################################################################################
+# Transforms
+################################################################################
 
 class Identity(Transform):
     def __init__(self, *args, **kwargs) -> None:
@@ -83,30 +89,54 @@ class Identity(Transform):
     def transform(self, X):
         return X
 
+################################################################################
+# Constants (Valid keys)
+################################################################################
 
+# Dictionary with the valid estimators keys to use in experiment configuration 
+# (under estimator.algorithm key).
+# The key is the algorithm name and the value is the class to use.
+# Estimators must be a subclass of `librep.estimators.base.BaseEstimator` or implement
+# the same interface (scikit-learn compatible, fit/predict methods)
 estimator_cls = {
     "SVM": SVC,
     "KNN": KNeighborsClassifier,
     "RandomForest":RandomForestClassifier,
 }
 
+# Dictionary with the valid reducer keys to use in experiment configuration
+# (under reducer.algorithm key).
+# The key is the algorithm name and the value is the class to use.
+# Reducers must be a subclass of `librep.reducers.base.Transform` or implement
+# the same interface (scikit-learn compatible, fit/transform methods)
 reducers_cls = {
     "identity": Identity,
     "umap": UMAP
 }
 
+# Dictionary with the valid transforms keys to use in experiment configuration
+# (under transform.transform key).
+# The key is the algorithm name and the value is the class to use.
+# Transforms must be a subclass of `librep.transforms.base.Transform` or implement
+# the same interface (scikit-learn compatible, fit/transform methods)
 transforms_cls = {
     "identity": Identity,
     "fft": FFT,
 }
 
+# Dictionary with the valid scalers keys to use in experiment configuration
+# (under scaler.algorithm key).
+# The key is the algorithm name and the value is the class to use.
+# Scalers must be a subclass of `librep.scalers.base.Transform` or implement
+# the same interface (scikit-learn compatible, fit/transform methods)
 scaler_cls = {
     "identity": Identity,
     "StandardScaler": StandardScaler,
     "MinMaxScaler": MinMaxScaler,
 }
 
-labels_activity = {
+# Dictionary with standard labels for each activity code
+standard_labels_activity = {
     0: "sit",
     1: "stand",
     2: "walk",
@@ -116,6 +146,10 @@ labels_activity = {
     6: "stair up and down",
 }
 
+# Dictionary with the valid datasets keys to use in experiment configuration
+# (under reducer_dataset, train_dataset and test_dataset keys).
+# The key is the dataset name and the value is the relative path to the dataset.
+# The dataset must contain the following files: train.csv, validation.csv and test.csv
 datasets = {
     # KuHar
     "kuhar.raw_balanced": Path("KuHar/raw_balanced"),
