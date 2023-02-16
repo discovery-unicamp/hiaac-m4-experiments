@@ -58,17 +58,17 @@ number_runs: 5                    # Number of times the estimator will run (fit 
 
 reducer_dataset:                                
 - motionsense.standartized_balanced[train]   # List of datasets used in reducer algorithm (in order). The datasets will be merged into a single dataset. The dataset name must be in the format <dataset_name>.<dataset_version>[<dataset_split>] where:
-                                            # - dataset_name: name of the dataset (must be in the datasets folder)
-                                            # - dataset_version: version of the dataset (must be in the datasets folder)
+                                            # - dataset_name: name of the dataset
+                                            # - dataset_version: version of the dataset
                                             # - dataset_split: split of the dataset (must be in the datasets folder)
                                             # The dataset must be in the format <dataset_name>.<dataset_version>.<dataset_split>.csv
                                             # The dataset must have the following columns: "sensor", "axis", "timestamp", "value"
                                             # The dataset must be standartized (mean=0, std=1)
                                             # The dataset must be balanced (same number of samples per class)
 - motionsense.standartized_balanced[validation]
-test_dataset:
+test_dataset:                               # List of datasets used in test (in order). The datasets will be merged into a single dataset. The dataset name must be in the format <dataset_name>.<dataset_version>[<dataset_split>], as abobe.
 - kuhar.standartized_balanced[test]
-train_dataset:
+train_dataset:                              # List of datasets used in train (in order). The datasets will be merged into a single dataset. The dataset name must be in the format <dataset_name>.<dataset_version>[<dataset_split>], as abobe.
 - kuhar.standartized_balanced[train]
 - kuhar.standartized_balanced[validation]
 
@@ -110,7 +110,7 @@ extra:                              # Extra options for execution
   scale_on: train                   # It can be: "train" or "self". "train" means that the scaler will be fit on the train dataset and then applied on the train and test datasets. "self" means that the scaler will be fit and applyyed to each dataset (train, test).
 ```
 
-In order to work, users must first download the datasets and extract in a folder as you wish.
+In order to work, users must first download the datasets and extract in a folder as you wish. The valid dataset names are defined in the `config.py` file, in the datasets variable, there the key is the dataset name and version (used in the datasets sections in the YAML file) and the value is the path to the dataset, relative to the `--data-root` option.
 
 More examples can be found in the `examples` directory.
 
