@@ -264,7 +264,7 @@ def do_transform(
                 the_transform = WindowedTransform(
                     transform=the_transform,
                     fit_on=None,
-                    transform_on="all",
+                    transform_on="window",
                 )
             # Create the list of transforms to apply to the dataset
             transforms.append(the_transform)

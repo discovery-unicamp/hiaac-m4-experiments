@@ -22,19 +22,22 @@ reducer:
     n_components: 25
   name: umap-25-all
 reducer_dataset:
-- motionsense.standartized_balanced[train]
-- motionsense.standartized_balanced[validation]
-scaler: null
-  # algorithm: identity
-  # kwargs: null
-  # name: no_scaler
+- kuhar.standartized_balanced[train]
+- kuhar.standartized_balanced[validation]
+scaler:
+  algorithm: std_scaler
+  kwargs: null
+  name: StandardScalerUse
 test_dataset:
 - kuhar.standartized_balanced[test]
 train_dataset:
 - kuhar.standartized_balanced[train]
 - kuhar.standartized_balanced[validation]
 transforms:
-- kwargs: null
+- kwargs: 
+    centered: true
   name: fft_transform.0
   transform: fft
-  windowed: null
+  windowed:
+    fit_on: null
+    transform_on: window
