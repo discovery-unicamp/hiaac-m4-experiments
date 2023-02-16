@@ -1,10 +1,8 @@
 estimator:
-  algorithm: RandomForest
-  allow_multirun: true
+  algorithm: KNN
   kwargs:
-    n_estimators: 100
-  name: randomforest-100
-execution_id: '000000'
+    n_neighbors: 5
+  name: KNN-5
 extra:
   in_use_features:
   - accel-x
@@ -15,24 +13,25 @@ extra:
   - gyro-z
   reduce_on: all
   scale_on: train
-number_runs: 5
+  estimator_runs: 10
+  estimator_deterministic: true
 reducer:
   algorithm: umap
   kwargs:
     n_components: 25
   name: umap-25-all
 reducer_dataset:
-- kuhar.standartized_balanced[train]
-- kuhar.standartized_balanced[validation]
+- motionsense.standartized_balanced[train]
+- motionsense.standartized_balanced[validation]
 scaler:
   algorithm: std_scaler
   kwargs: null
   name: StandardScalerUse
 test_dataset:
-- kuhar.standartized_balanced[test]
+- motionsense.standartized_balanced[test]
 train_dataset:
-- kuhar.standartized_balanced[train]
-- kuhar.standartized_balanced[validation]
+- motionsense.standartized_balanced[train]
+- motionsense.standartized_balanced[validation]
 transforms:
 - kwargs: 
     centered: true

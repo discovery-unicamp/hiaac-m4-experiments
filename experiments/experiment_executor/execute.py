@@ -135,7 +135,7 @@ def load_datasets(
         The root directory where the datasets are stored.
     datasets_to_load : List[str]
         A list of datasets to load. Each dataset is specified as a string in the
-        following format: "dataset_name[split]". The dataset name is the name
+        following format: "dataset_name.dataset_view[split]". The dataset name is the name
         of the dataset as specified in the `datasets` variable in the config.py
         file. The split is the split of the dataset to load. It can be either
         "train", "validation" or "test".
@@ -618,8 +618,8 @@ def run_experiment(
 
     # Create a multi execution workflow
     num_runs = (
-        config_to_execute.number_runs
-        if config_to_execute.estimator.allow_multirun
+        config_to_execute.extra.estimator_runs
+        if not config_to_execute.extra.estimator_deterministic
         else 1
     )
     runner = MultiRunWorkflow(workflow=workflow, num_runs=num_runs)
@@ -628,7 +628,10 @@ def run_experiment(
         results = runner(train_dset, test_dset)
     additional_info["classification_time"] = float(classification_time)
 
-    additional_info["total_time"] = time.time() - start_time
+    end_time = time.time()
+    additional_info["total_time"] = end_time - start_time
+    additional_info["start_time"] = start_time
+    additional_info["end_time"] = end_time
     additional_info["num_runs"] = num_runs
 
     # ----------- 6. Save results ------------
@@ -665,21 +668,20 @@ def run_wrapper(args) -> dict:
     root_data_dir: Path = Path(args[0])
     output_dir: Path = Path(args[1])
     yaml_config_file: Path = Path(args[2])
+    experiment_id = yaml_config_file.stem
     result = dict()
     try:
         # Load config
         config = from_dict(data_class=ExecutionConfig, data=load_yaml(yaml_config_file))
-        logging.info(f"Starting execution {config.execution_id}...")
-
         # Create output file
-        experiment_output_file = output_dir / f"{config.execution_id}.yaml"
+        experiment_output_file = output_dir / f"{experiment_id}.yaml"
+        logging.info(f"Starting execution {experiment_id}. Output at {experiment_output_file}")
 
         # Run experiment
         result = run_experiment(root_data_dir, experiment_output_file, config)
     except Exception as e:
         logging.exception("Error while running experiment!")
     finally:
-        # print(f"Ended! Execution {config.execution_id} took {time.time()-start:.3f} seconds.")
         return result
 
 
