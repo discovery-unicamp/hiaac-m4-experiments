@@ -7,7 +7,7 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Dict, List
 
 # Third-party imports
 import coloredlogs
@@ -69,7 +69,6 @@ The code is divided into four main parts:
 # Uncomment to remove warnings
 # warnings.filterwarnings("always")
 
-
 class catchtime:
     """Utilitary class to measure time in a `with` python statement."""
 
@@ -112,7 +111,7 @@ def load_yaml(path: PathLike) -> dict:
 
 
 def load_datasets(
-    root_dir: PathLike,
+    dataset_locations: Dict[str, PathLike],
     datasets_to_load: List[str],
     label_columns: str = "standard activity code",
     features: List[str] = (
@@ -131,8 +130,6 @@ def load_datasets(
 
     Parameters
     ----------
-    root_dir : PathLike
-        The root directory where the datasets are stored.
     datasets_to_load : List[str]
         A list of datasets to load. Each dataset is specified as a string in the
         following format: "dataset_name.dataset_view[split]". The dataset name is the name
@@ -153,7 +150,10 @@ def load_datasets(
     Examples
     --------
     >>> load_datasets(
-    ...     root_dir="datasets",
+    ...     dataset_locations={
+    ...         "kuhar.standartized_balanced": "data/kuhar",
+    ...         "motionsense.standartized_balanced": "data/motionsense",
+    ...     },
     ...     datasets_to_load=[
     ...         "kuhar.standartized_balanced[train]",
     ...         "kuhar.standartized_balanced[validation]",
@@ -163,7 +163,6 @@ def load_datasets(
     ... )
     """
     # Transform it to a Path object
-    root_dir = Path(root_dir)
     dset_names = set()
 
     # Remove the split from the dataset name
@@ -177,7 +176,7 @@ def load_datasets(
     multimodal_datasets = dict()
     for name in dset_names:
         # Define dataset path. Join the root_dir with the path of the dataset
-        path = root_dir / datasets[name]
+        path = dataset_locations[name]
         # Load the dataset
         loader = PandasMultiModalLoader(root_dir=path)
         train, validation, test = loader.load(
@@ -461,7 +460,7 @@ def do_scaling(
 
 # Function that runs the experiment
 def run_experiment(
-    root_data_dir: PathLike,
+    dataset_locations: Dict[str, PathLike],
     experiment_output_file: PathLike,
     config_to_execute: ExecutionConfig,
 ) -> dict:
@@ -485,8 +484,9 @@ def run_experiment(
 
     Parameters
     ----------
-    root_data_dir : PathLike
-        The root directory where the datasets are stored.
+    dataset_locations :  Dict[str, PathLike],
+        Dictionary with dataset locations. Key is the dataset name and value
+        is the path to the dataset.
     experiment_output_file : PathLike
         Path to the file where the results will be saved.
     config_to_execute : ExecutionConfig
@@ -511,7 +511,6 @@ def run_experiment(
             "If reducer is specified, reducer_dataset must be specified as well"
         )
 
-    root_data_dir = Path(root_data_dir)
     experiment_output_file = Path(experiment_output_file)
 
     # Useful variables
@@ -522,20 +521,20 @@ def run_experiment(
     with catchtime() as loading_time:
         # Load train dataset
         train_dset = load_datasets(
-            root_dir=root_data_dir,
+            dataset_locations=dataset_locations,
             datasets_to_load=config_to_execute.train_dataset,
             features=config_to_execute.extra.in_use_features,
         )
         # Load test dataset
         test_dset = load_datasets(
-            root_dir=root_data_dir,
+            dataset_locations=dataset_locations,
             datasets_to_load=config_to_execute.test_dataset,
             features=config_to_execute.extra.in_use_features,
         )
         # If there is any reducer dataset speficied, load reducer
         if config_to_execute.reducer_dataset:
             reducer_dset = load_datasets(
-                root_dir=root_data_dir,
+                dataset_locations=dataset_locations,
                 datasets_to_load=config_to_execute.reducer_dataset,
                 features=config_to_execute.extra.in_use_features,
             )
@@ -655,7 +654,7 @@ def run_wrapper(args) -> dict:
     ----------
     args : _type_
         A list of arguments, in the following order:
-        - root_data_dir: Path (the root directory where the datasets are stored)
+        - dataset_locations: Dict[str, PathLike] (locations of the datasets)
         - output_dir: Path (the directory where the results will be stored)
         - yaml_config_file: Path (the path to the yaml file containing the experiment configuration)
 
@@ -665,7 +664,7 @@ def run_wrapper(args) -> dict:
         A dict with the results of the experiment and additional information.
     """
     # Unpack arguments
-    root_data_dir: Path = Path(args[0])
+    dataset_locations: Dict[str, PathLike] = args[0]
     output_dir: Path = Path(args[1])
     yaml_config_file: Path = Path(args[2])
     experiment_id = yaml_config_file.stem
@@ -678,7 +677,7 @@ def run_wrapper(args) -> dict:
         logging.info(f"Starting execution {experiment_id}. Output at {experiment_output_file}")
 
         # Run experiment
-        result = run_experiment(root_data_dir, experiment_output_file, config)
+        result = run_experiment(dataset_locations, experiment_output_file, config)
     except Exception as e:
         logging.exception("Error while running experiment!")
     finally:
@@ -686,7 +685,7 @@ def run_wrapper(args) -> dict:
 
 
 def run_single_thread(
-    args: Any, execution_config_files: List[PathLike], output_path: PathLike
+    args: Any, dataset_locations: Dict[str, PathLike], execution_config_files: List[PathLike], output_path: PathLike
 ):
     """Runs the experiments sequentially, without parallelization.
 
@@ -694,22 +693,26 @@ def run_single_thread(
     ----------
     args : Any
         The arguments passed to the script
+    dataset_locations: Dict[str, PathLike]
+        A dictionary with the dataset names and their locations.
     execution_config_files : List[PathLike]
         List of configuration files to execute.
     output_path : PathLike
         Output path where the results will be stored.
     """
     for e in tqdm.tqdm(execution_config_files, desc="Executing experiments"):
-        run_wrapper((args.data_path, output_path, e))
+        run_wrapper((dataset_locations, output_path, e))
 
 
-def run_ray(args: Any, execution_config_files: List[PathLike], output_path: PathLike):
+def run_ray(args: Any, dataset_locations: Dict[str, PathLike], execution_config_files: List[PathLike], output_path: PathLike):
     """Runs the experiments in parallel, using Ray.
 
     Parameters
     ----------
     args : Any
         The arguments passed to the script
+    dataset_locations: Dict[str, PathLike]
+        A dictionary with the dataset names and their locations.
     execution_config_files : List[PathLike]
         List of configuration files to execute.
     output_path : PathLike
@@ -719,7 +722,7 @@ def run_ray(args: Any, execution_config_files: List[PathLike], output_path: Path
     pool = Pool()
     iterator = pool.imap(
         run_wrapper,
-        [(args.data_path, output_path, e) for e in execution_config_files],
+        [(dataset_locations, output_path, e) for e in execution_config_files],
     )
     final_res = list(
         tqdm.tqdm(
@@ -758,6 +761,16 @@ if __name__ == "__main__":
         help="Root data dir where the datasets are stored",
         type=str,
         required=True,
+    )
+
+    parser.add_argument(
+        "-l",
+        "--dataset-locations",
+        action="store",
+        help="Dataset locations YAML file",
+        type=str,
+        required=False,
+        default="./dataset_locations.yaml"
     )
 
     parser.add_argument(
@@ -830,6 +843,12 @@ if __name__ == "__main__":
     output_path = Path(args.output_path) / args.run_name
     output_path.mkdir(parents=True, exist_ok=True)
 
+    # ------ Load dataset locations ------
+    data_path = Path(args.data_path)
+    dataset_locations = load_yaml(args.dataset_locations)
+    for k, v in dataset_locations.items():
+        dataset_locations[k] = data_path / v
+
     # ------ Read and filter execution configs ------
     # Load configs from directory (sorted)
     execution_config_files = sorted(
@@ -860,9 +879,9 @@ if __name__ == "__main__":
         # Run single
         if not args.ray:
             logging.warning("Running in single mode! (slow)")
-            run_single_thread(args, execution_config_files, output_path)
+            run_single_thread(args, dataset_locations, execution_config_files, output_path)
         else:
-            run_ray(args, execution_config_files, output_path)
+            run_ray(args, dataset_locations, execution_config_files, output_path)
     print(f"Finished! It took {float(total_time):.4f} seconds!")
 
     # Return OK

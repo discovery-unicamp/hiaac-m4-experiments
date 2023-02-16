@@ -30,7 +30,7 @@ Once the experiments are written, the easiest way to execute the script is using
 python execute.py <experiments_dir> --data-path <path_to_data_root> --run-name my-experiment-run-1 --skip-existing
 ```
 
-Where the `experiments_dir` is the path where configuration files are stored and the `path_to_data_root` is the path to the root of the datasets. The `--skip-existing` option allows skipping the execution of the experiment if the results already exist. Finally, the `--run-name` is the symbolic name of the execution run of the experiment.
+Where the `experiments_dir` is the path where configuration files are stored and the `path_to_data_root` is the path to the root of the datasets. The `--skip-existing` option allows skipping the execution of the experiment if the results already exist. Finally, the `--run-name` is the symbolic name of the execution run of the experiment. The `dataset_locations.yaml` file contains the paths to the datasets.
 
 The script will execute each configuration file sequentially or in parallel if using `--ray` option (it also allows distributed execution in ray clusters). The results will be stored in the `results` folder. 
 
@@ -64,17 +64,22 @@ reducer_dataset:
                                             # - dataset_view: view of the dataset
                                             # - dataset_split: split of the dataset
                                             #    (train, validation, or test)
+                                            # Valid dataset values are found in the file
+                                            # dataset_locations.yaml
 - motionsense.standartized_balanced[validation]
 test_dataset:                               # List of datasets used in the test (in order). 
                                             # The datasets will be merged into a single dataset. 
                                             # The dataset name must be in the format 
                                             # <dataset_name>.<dataset_view>[<dataset_split>] 
-                                            
+                                            # Valid dataset values are found in the file
+                                            # dataset_locations.yaml
 - kuhar.standartized_balanced[test]
 train_dataset:                              # List of datasets used in train (in order).                                     
                                             # The datasets will be merged into a single dataset. 
                                             # The dataset name must be in the format 
                                             # <dataset_name>.<dataset_view>[<dataset_split>] 
+                                            # Valid dataset values are found in the file
+                                            # dataset_locations.yaml
 - kuhar.standartized_balanced[train]
 - kuhar.standartized_balanced[validation]
 
@@ -142,7 +147,7 @@ extra:                              # Extra options for execution
                                     # be fit and predict only once)
 ```
 
-To work, users must first download the datasets and extract them in a folder as they wish. The valid dataset names are defined in the `config.py` file, in the `datasets` variable, there the key is the dataset name and version (used in the datasets sections in the YAML file) and the value is the path to the dataset, relative to the `--data-root` option.
+To work, users must first download the datasets and extract them in a folder as they wish. The valid dataset names are defined an external YAML file (`dataset_locations.yaml`), where the key is the dataset name and view (used in the datasets sections in the YAML file) and the value is the path to the dataset, relative to the `--data-root` argument. 
 
 It is assumed that all datasets will have the `train.csv`, `validation.csv`, and `test.csv` files. Besides that, the datasets must have `accel-x`, `accel-y`, `accel-z`, `gyro-x`, `gyro-y`, and `gyro-z` columns. 
 

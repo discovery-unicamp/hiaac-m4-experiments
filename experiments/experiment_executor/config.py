@@ -143,19 +143,3 @@ standard_labels_activity = {
     5: "run",
     6: "stair up and down",
 }
-
-# Dictionary with the valid datasets keys to use in experiment configuration
-# (under reducer_dataset, train_dataset and test_dataset keys).
-# The key is the dataset name and the value is the relative path to the dataset.
-# The dataset must contain the following files: train.csv, validation.csv and test.csv
-datasets = {
-    # KuHar
-    "kuhar.raw_balanced": Path("KuHar/raw_balanced"),
-    "kuhar.standartized_balanced": Path("KuHar/standartized_balanced"),
-    # MotionSense
-    "motionsense.raw_balanced": Path("MotionSense/raw_balanced"),
-    "motionsense.standartized_balanced": Path("MotionSense/standartized_balanced"),
-    # UCI
-    "uci.raw_balanced": Path("UCI/raw_balanced"),
-    "uci.standartized_balanced": Path("UCI/standartized_balanced"),
-}
