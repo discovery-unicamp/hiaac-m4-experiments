@@ -1,4 +1,4 @@
-# Parallel experiment executor
+# Experiment executor
 
 This is an experiment executor that allows running different experiment configurations by using execution config files.
 
@@ -6,13 +6,7 @@ This is an experiment executor that allows running different experiment configur
 
 ### Using pip
 
-First check the latest version of [`librep`](https://github.com/otavioon/hiaac-librep). This can be done by using:
-
-```bash
-pip install git+https://github.com/otavioon/hiaac-librep.git
-```
-
-After that, you must install the dependencies. To do this, run:
+You may install the dependencies using the `requirements.txt` file.
 
 ```
 pip install -r requirements.txt
@@ -24,100 +18,104 @@ TO BE DONE
 
 ## Execution
 
-The execution consists in two steps
+The execution consists in two steps:
 
-1. Writing configuration files in [YAML](https://yaml.org/) format
-2. Executing the configuration files in a local machine or distributed
+1. Writing configuration files in [YAML](https://yaml.org/). Each configuration file corresponds to a single experiment. They are put into a user-defined directory.
 
-### About the configuration files
+2. Execute experiment configuration files in a local machine or distributed.
 
-Each YAML configuration file consists in one execution. The executor script reads a folder with several configuration files, where each one will become an experiment. The name of the configuration file it is the experiment id.
+Once the experiments are written, the easiest way to execute the script is using:
 
-The folder `executions_config2` contains a lot of experiments to be executed. The YAML structure follows the following format:
+```
+python execute.py <experiments_dir> --data-path <path_to_data_root> --exp-name my-experiment-1 --skip-existing 
+```
+
+Where the `experiments_dir` is the path where configuration files are stored and the `path_to_data_root` is the path to the root of the datasets. The `--skip-existing` option will skip the execution of the experiment if the results already exists. Finally, the `--exp-name` is the symbolic name of the execution of the experiment.
+
+The script will execute each configuration file sequentially or parallel (if using `--ray` option). The results will be stored in the `results` folder. More options and information about the execution can be found executing `python execute.py --help`.
+
+
+## Experiment configuration files
+
+Each YAML configuration file represent one experiment, and has all information in order to execute it (such as, the datasets to be used, the transforms to be applied, and the classification algorithms). The executor script (`execute.py`) reads a folder with several experiment configuration files and execute each one sequentially or parallel. Usually, the name of the configuration file it is also the experiment id.
+
+The `execute.py` script will perform the following steps:
+
+1. Load the datasets
+2. Apply the non-parametric transforms
+3. Apply the reducer algorithm
+4. Apply the scaler algorithm
+5. Apply the estimator algorithm
+6. Save the results
+
+The configuration file controls the behavior of execution and have the following structure:
+
 
 ```yaml
-estimator:                      # Information about the classification algorithm
-  algorithm: RandomForest       # Name of the algorithm. Valid algorithm names is under estimator_cls in file config.py
-  allow_multirun: true          # If the algorithm is non-deterministic (must be run many times)
-  kwargs:                       # Parameters for algorithm creation
-    n_estimators: 100
-  name: randomforest-100        # Symbolic estimator name
-execution_id: '0'               # Symbolic execution id (matches file name). It will be removed
-extra:                          # Extra options for execution
-  in_use_features:              # Features to be used
+execution_id: '000000'            # Symbolic execution id (it is optional to match file name)
+number_runs: 5                    # Number of times the estimator will run (fit and predict)
+
+
+reducer_dataset:                                
+- motionsense.standartized_balanced[train]   # List of datasets used in reducer algorithm (in order). The datasets will be merged into a single dataset. The dataset name must be in the format <dataset_name>.<dataset_version>[<dataset_split>] where:
+                                            # - dataset_name: name of the dataset (must be in the datasets folder)
+                                            # - dataset_version: version of the dataset (must be in the datasets folder)
+                                            # - dataset_split: split of the dataset (must be in the datasets folder)
+                                            # The dataset must be in the format <dataset_name>.<dataset_version>.<dataset_split>.csv
+                                            # The dataset must have the following columns: "sensor", "axis", "timestamp", "value"
+                                            # The dataset must be standartized (mean=0, std=1)
+                                            # The dataset must be balanced (same number of samples per class)
+- motionsense.standartized_balanced[validation]
+test_dataset:
+- kuhar.standartized_balanced[test]
+train_dataset:
+- kuhar.standartized_balanced[train]
+- kuhar.standartized_balanced[validation]
+
+transforms:                         # List of non-parametric transforms to be applyied in order)
+- kwargs: null                      # Parameters for transform creation
+  name: fft_transform.0             # Symbolic transform name
+  transform: fft                    # Name of the transform. Valid transform names is under transforms_cls in file config.py
+  windowed: null                    # Windowed transform controls
+
+reducer:                            # Especifies the reducer algorithm
+  algorithm: umap                   # Name of the reducer. Valid values names is under reducers_cls in the file config.py
+  kwargs:                           # Parameters for algorithm's creation
+    n_components: 25
+  name: umap-25-all                 # Symbolic reducer name
+
+scaler:                             # Especifies the scaler algorithm
+  algorithm: identity               # Name of the scaler. Valid values names is under scalers_cls in the file config.py
+  kwargs: null                      # Parameters for algorithm's creation
+  name: no_scaler                   # Symbolic scaler name
+
+estimator:                          # Information about the classification algorithm (for step 5)
+  algorithm: RandomForest           # Name of the algorithm. Valid algorithm names is under estimator_cls in file config.py
+  allow_multirun: true              # If the algorithm is non-deterministic (must be run many times)
+  kwargs:                           # Parameters for algorithm creation
+    n_estimators: 100               # Number of trees
+  name: randomforest-100            # Symbolic estimator name
+
+extra:                              # Extra options for execution
+  in_use_features:                  # List of features to be used fro loading datasets. The dataframe columns will be filtred with columns that have the prefix in this list 
   - accel-x
   - accel-y
   - accel-z
   - gyro-x
   - gyro-y
   - gyro-z
-  reduce_on: all                # It can be: "all": if the reducer algorithm will be applyied over all features
-                                # "sensor": if the reducer will be applyed one per sensor (will have multiple reducers)
-                                # "axis": if the reducer will be applyied one per axis of sensor (will have multiple reducers) 
-number_runs: 5                  # Number of times the estimator will run (fit and predict)
-reducer:                        # Especifies the reducer algorithm
-  algorithm: umap               # Name of the reducer. Valid values names is under reducers_cls in the file config.py
-  kwargs:                       # Parameters for algorithm's creation
-    n_components: 2
-  name: umap-2-all              # Symbolic reducer name
-  windowed:                     # Windowed transform controls (not used)
-    fit_on: null
-    transform_on: all
-reducer_dataset:                # List of datasets used in reducer algorithm (in order). The datasets will be merged into a single dataset
-- kuhar
-test_dataset:                   # List of datasets used to test (in order). The datasets will be merged into a single dataset
-- kuhar
-train_dataset:                  # List of datasets used to train (in order). The datasets will be merged into a single dataset
-- kuhar
-transforms:                     # List of non-parametric transforms to be applyied in order)
-- kwargs:                       # Transform kwargs
-    centered: true                    
-  name: fft_transform.0         # Symbolic transforrm name
-  transform: fft                # Transformer algorithm. Valid names is under transforms_cls in config.py file
-  windowed: {}
-
+  reduce_on: all                    # It can be: "all": if the reducer algorithm will be applyied over all features
+                                    # "sensor": if the reducer will be applyed one per sensor (will have multiple reducers)
+                                    # "axis": if the reducer will be applyied one per axis of sensor (will have multiple reducers)
+  scale_on: train                   # It can be: "train" or "self". "train" means that the scaler will be fit on the train dataset and then applied on the train and test datasets. "self" means that the scaler will be fit and applyyed to each dataset (train, test).
 ```
 
-Once a configuration file is written, it must be saved inside a directory (where user wishes) in order to be fetched and executed 
+In order to work, users must first download the datasets and extract in a folder as you wish.
 
-
-### Executing the configuration files
-
-In order to work, users must first download the [Megazord Dataset](https://drive.google.com/file/d/1h6CD9B8Tx3XXXLlsGaawxj_0c4eSCEPb/view?usp=share_link) and extract in a folder as they wish.
-
-Supposing the data where extracted to `data/balanced_20Hz_filtered` and the configuration files are saved to `configurations`/, the user may launch the executor, by using the following command:
-
-```
-python execute.py configurations/ -d "data/balanced_20Hz_filtered" -o "./results" --skip-existing 
-```
-
-Where the `results` is the directory where results will be stored and the flag `--skip-existing` will skip configurations that have already run (that is, one the has a result produced in the results folder).
-
-Finally, for the experiments already run, some information can be viewed in the `executions_config2_results`
-
+More examples can be found in the `examples` directory.
 
 ## Altering the execution
 
-You may want to modify the execution of the script by: adding more options, rewriting the runner, or something else. The root script is the `execute.py` script, in special, the `_run` function.
+You may want to modify the execution of the script to add more options or change the execution flow by rewriting some parts of the `execute.py` script, in special, the `run_experiment` function that runs an experiment based on a configuration file.
 
-The `_run` function is called by `run` which, in turn, is parallelized. The `run` function is called for each configuration file in the folder (which is received as parameter) and it is executed distributively.
-
-The `_run` function (that you may want to modify) receives:
-- `root_data_dir`: a string with the root path to the dataset
-- `output_dir`: a string with the output results directory
-- `experiment_name`: the id of the experiment
-- `config`: The `ExecutionConfig` associated. The `ExecutionConfig` it exactly equals the configuration YAML, except that instead of a dictionary, it is a python Dataclass. Every change in the dataclass, you may change the YAML files. The dataclass can be found in `config.py` file.
-
-
-The `_run` method must execute based on the `ExecutionConfig` which is the YAML file. You may want to alter this function and do whatever you want here.
-For now, this function behaves the following way:
-
-1. Load the train datasets (into `train_dset` variable), test datasets (into `test_dset` variable) and the reducer datasets (into `reducer_dset` variable).
-2. Apply the list of non-parametric transforms (like FFT), based on the list of `transforms` listed in the configuration file. The `do_transform` function receives the `train_dset`, the `test_dset` and the list of transforms to be applied.
-3. Apply the reducer, based on the `reducer` algorithm listed in the configuration file. It will use the `do_reduce` function to apply the reduction. This functions receives the `reducer_dset` where reducer.fit will be applyied. The `train` and `test` datasets, which will be transformed, the reducer config (to instantiate the object) and the `reduce_on` parameter, telling where the reducer will be applyied ('all', 'sensor' or 'axis')
-4. Execute the train of the algorithm in the train dataset
-5. Evaluate the algorithm over the test dataset
-6. Store the results and additional information under the results directory, as a YAML file.
-7. Return the results
-
-The `additional_info` variable saves additional information to be stored in the experiment results (like, timings, sizes, etc.) 
+The valid values for configuration files are defined in the `config.py` file, in the `ExecutionConfig` class. This is a dataclass that models the YAML dictionary. YAML configuration files are loaded (and populated) into objects of `ExecutionConfig` before executing `run_experiment`. You may want to add more options to the configuration files, editing this class.
