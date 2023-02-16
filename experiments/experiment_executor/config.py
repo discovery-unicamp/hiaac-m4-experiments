@@ -35,33 +35,31 @@ class ReducerConfig:
 class TransformConfig:
     name: str
     transform: str
-    kwargs: Optional[dict]
-    windowed: Optional[WindowedConfig]
+    kwargs: Optional[dict] = None
+    windowed: Optional[WindowedConfig] = None
 
 @dataclass
 class EstimatorConfig:
     name: str
     algorithm: str
-    kwargs: Optional[dict]
-    allow_multirun: bool
+    kwargs: Optional[dict]= None
 
 @dataclass
 class ScalerConfig:
     name: str
     algorithm: str
-    kwargs: Optional[dict]
+    kwargs: Optional[dict] = None
 
 @dataclass
 class ExtraConfig:
     in_use_features: list
     reduce_on: str # valid values: all, sensor, axis
     scale_on: str # valid values: self, train
+    estimator_runs: Optional[int] = 1 # number of runs (fit/predict) for the estimator
+    estimator_deterministic: Optional[bool] = False # if estimator is deterministic or not
 
 @dataclass
 class ExecutionConfig:
-    # Control variables
-    execution_id: str
-    number_runs: int
     # Datasets to use
     reducer_dataset: Optional[List[str]]
     train_dataset: List[str]
