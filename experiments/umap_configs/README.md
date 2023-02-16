@@ -32,7 +32,7 @@ python execute.py <experiments_dir> --data-path <path_to_data_root> --exp-name m
 
 Where the `experiments_dir` is the path where configuration files are stored and the `path_to_data_root` is the path to the root of the datasets. The `--skip-existing` option will skip the execution of the experiment if the results already exists. Finally, the `--exp-name` is the symbolic name of the execution of the experiment.
 
-The script will execute each configuration file sequentially or parallel (if using `--ray` option). The results will be stored in the `results` folder. More options and information about the execution can be found executing `python execute.py --help`.
+The script will execute each configuration file sequentially or parallel, if using `--ray` option(it also allows distributed execution in ray clusters). The results will be stored in the `results` folder. More options and information about the execution can be found executing `python execute.py --help`.
 
 
 ## Experiment configuration files
@@ -119,3 +119,8 @@ More examples can be found in the `examples` directory.
 You may want to modify the execution of the script to add more options or change the execution flow by rewriting some parts of the `execute.py` script, in special, the `run_experiment` function that runs an experiment based on a configuration file.
 
 The valid values for configuration files are defined in the `config.py` file, in the `ExecutionConfig` class. This is a dataclass that models the YAML dictionary. YAML configuration files are loaded (and populated) into objects of `ExecutionConfig` before executing `run_experiment`. You may want to add more options to the configuration files, editing this class.
+
+
+## Running experiments in a distributed environment
+
+TO BE DONE
