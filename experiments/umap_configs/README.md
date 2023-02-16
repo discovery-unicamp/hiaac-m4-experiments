@@ -112,6 +112,8 @@ extra:                              # Extra options for execution
 
 In order to work, users must first download the datasets and extract in a folder as you wish. The valid dataset names are defined in the `config.py` file, in the datasets variable, there the key is the dataset name and version (used in the datasets sections in the YAML file) and the value is the path to the dataset, relative to the `--data-root` option.
 
+It is assumed that all datasets will have the `train.csv`, `validation.csv` and `test.csv` files. Besides that, the datasets must have `accel-x`, `accel-y`, `accel-z`, `gyro-x`, `gyro-y`, `gyro-z` columns. 
+
 More examples can be found in the `examples` directory.
 
 ## Altering the execution
