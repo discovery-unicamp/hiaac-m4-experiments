@@ -143,12 +143,10 @@ class Interpolate:
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         """Reamostra as colunas do dataframe.
-
         Parameters
         ----------
         df : pd.DataFrame
             O dataframe a ser reamostrado.
-
         Returns
         -------
         pd.DataFrame
