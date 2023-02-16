@@ -63,14 +63,14 @@ Where the `original` directory contains the original datasets (as they are downl
 ## Dataset Generation Process
 
 To generate the datasets, you can run the notebooks, which are in this directory. Notebooks whose file name starts with `1` must be run first, then the notebooks whose file name starts with `2`, and so on. Notebooks with the same initial number can be run in parallel, in any order.
-The `1` notebooks generate the `raw balanced` datasets, `standardized balanced` datasets and `unbalanced` datasets. The notebooks will generate the datasets in the `preliminary_analisys/datasets_preprocessing/data` directory.
+The `1` notebooks generate the `raw balanced` datasets, `standardized balanced` datasets, and `unbalanced` datasets. The notebooks will generate the datasets in the `preliminary_analisys/datasets_preprocessing/data` directory.
 
 
 ## Standardization Process
 
-The standardization process, also called the standardization pipeline, comprises the execution of several steps (operations) per dataset.
-Each dataset has its own standardization pipeline, as they are different from each other. 
-The operators are all defined in the `dataset_processor.py` file. The operators are defined as classes, and each class has a `__call__` method, which receives a pandas Dataframe and returns a pandas Dataframe. The `__call__` method is the operator's implementation.
+The standardization process also called the standardization pipeline, comprises the execution of several steps (operations) per dataset.
+Each dataset has its standardization pipeline, as they are different from each other. 
+The operators are all defined in the `dataset_processor.py` file. The operators are defined as classes, and each class has a `__call__` method, which receives a pandas dataframe and returns a pandas dataframe. The `__call__` method is the operator's implementation.
 
 ---
 
@@ -81,31 +81,31 @@ The operators are all defined in the `dataset_processor.py` file. The operators 
 
 ---
 
-The standardization codes from notebooks, usually comprises the following steps (**this is not a strict rule**):
+The standardization codes from notebooks usually comprise the following steps (**this is not a strict rule**):
 
-1. Load the datasets and generate a single pandas Dataframe with all the data, where each row represents a single instant of capture (and now a window). The loading is a dataset-specific process. The dataframe generated **usually** have the following columns (**this is not a rule**):
-- A column for the x-axis acceleration (`accel-x` column); y-axis acceleration (`accel-y` column); z-axis acceleration (`accel-z` column); gyroscope x-axis (`gyro-x` column); gyroscope y-axis (`gyro-y` column); gyroscope z-axis (`gyro-z` column); and the timestamp from accelerometer (`accel-timestamp`) and gyroscope (`gyro-timestamp`), if provided.
+1. Load the datasets and generate a single pandas dataframe with all the data, where each row represents a single instant of capture (and now a window). The loading is a dataset-specific process. The dataframe generated **usually** have the following columns (**this is not a rule**):
+- A column for the x-axis acceleration (`accel-x` column); y-axis acceleration (`accel-y` column); z-axis acceleration (`accel-z` column); gyroscope x-axis (`gyro-x` column); gyroscope y-axis (`gyro-y` column); gyroscope z-axis (`gyro-z` column); and the timestamp from the accelerometer (`accel-timestamp`) and gyroscope (`gyro-timestamp`), if provided.
 - A column for the label (`activity code` column).
 - A column for the user id (`user` column), if provided.
 - A column for x-axis gravity (`gravity-x` column); y-axis gravity (`gravity-y` column); and z-axis gravity (`gravity-z` column) if provided.
-- A serial column, which represent the attempt that the collection was made (`serial` column), if provided. For instance, if the user has a time series running in the morning and other in the afternoon, it will be two different serial numbers.
-- A csv or file column, which represent the file that the row was extracted from (`csv` column). 
-- An index column, that is, a column that represents the row index from the csv file (`index` column).
+- A serial column, which represents the attempt that the collection was made (`serial` column), if provided. For instance, if the user has a time series running in the morning and another in the afternoon, it will be two different serial numbers.
+- A CSV or file column, which represents the file that the row was extracted from (`csv` column). 
+- An index column, that is, a column that represents the row index from the CSV file (`index` column).
 2. Create the operator objects.
 3. Crete the pipeline object, passing the operator object list as parameters.
-4. Execute the pipeline, passing the dataframe as parameter.
+4. Execute the pipeline, passing the dataframe as a parameter.
 
-The following code snippet illustrates a fictitious standardization process for the `KuHar` dataset that resample it to 20Hz and create 3 second windows (**using this kind of code and operators is not a rule**):
+The following code snippet illustrates a fictitious standardization process for the `KuHar` dataset that resamples it to 20Hz and creates 3-second windows (**using this kind of code and operators is not a rule**):
 
 ```python
 
 def read_kuhar(kuhar_dir_path: str) -> pd.DataFrame:
-    # This is dataset specific code. It reads the csv files and generates a single dataframe with all the data.
+    # This is dataset-specific code. It reads the CSV files and generates a single dataframe with all the data.
     ... 
     return dataframe
 
 # -----------------------------------------------------------------------------
-# 1. Load the datasets and generate a single pandas Dataframe with all the data
+# 1. Load the datasets and generate a single pandas dataframe with all the data
 # -----------------------------------------------------------------------------
 
 dataframe = read_kuhar("../data/original/KuHar/1.Raw_time_domian_data")
@@ -166,11 +166,11 @@ pipeline = Pipeline(
 )
 
 # -----------------------------------------------------------------------------
-# 4. Execute the pipeline, passing the dataframe as parameter
+# 4. Execute the pipeline, passing the dataframe as a parameter
 # -----------------------------------------------------------------------------
 
 dataset_padronizado = pipeline(dataframe)
 ```
 
-The pipeline operators are usually shared for other datasets, as they are generic.
+The pipeline operators are usually shared with other datasets, as they are generic.
 
