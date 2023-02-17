@@ -27,7 +27,7 @@ from librep.datasets.multimodal import (
 from librep.metrics.report import ClassificationReport
 from librep.utils.workflow import MultiRunWorkflow, SimpleTrainEvalWorkflow
 from ray.util.multiprocessing import Pool
-from utils import catchtime, load_yaml, get_sys_info
+from utils import catchtime, load_yaml, get_sys_info, multimodal_multi_merge
 
 """This module is used to execute the experiments based on configuration files,
 written in YAML. The configuration files are writen in YAML and the valid keys 
@@ -67,6 +67,7 @@ The code is divided into four main parts:
 
 # Uncomment to remove warnings
 # warnings.filterwarnings("always")
+
 
 def load_datasets(
     dataset_locations: Dict[str, PathLike],
@@ -227,10 +228,14 @@ def do_transform(
             transforms.append(the_transform)
             if keep_suffixes:
                 new_names.append(transform_config.name)
+        
+        new_name_prefix = ".".join(new_names)
+        if new_name_prefix:
+            new_name_prefix += "."
 
         # Instantiate the TransformMultiModalDataset with the list of transforms
         transformer = TransformMultiModalDataset(
-            transforms=transforms, new_window_name_prefix=".".join(new_names)
+            transforms=transforms, new_window_name_prefix=new_name_prefix
         )
         # Apply the transforms to the dataset
         dset = transformer(dset)
@@ -246,7 +251,7 @@ def do_reduce(
     datasets: List[MultiModalDataset],
     reducer_config: ReducerConfig,
     reduce_on: str = "all",
-    suffix: str = "reduced.",
+    suffix: str = "reduced",
 ) -> List[MultiModalDataset]:
     """Utilitary function to perform dimensionality reduce to a list of
     datasets. The first dataset will be used to fit the reducer. And the
@@ -289,6 +294,8 @@ def do_reduce(
     if len(datasets) < 2:
         raise ValueError("At least two datasets are required to reduce")
 
+    sensor_names = ["accel", "gyro"]
+
     # Get the reducer kwargs
     kwargs = reducer_config.kwargs or {}
     if reduce_on == "all":
@@ -313,9 +320,52 @@ def do_reduce(
         datasets = [transformer(dataset) for dataset in datasets[1:]]
         return datasets
 
-    elif reduce_on == "axis":
-        raise NotImplementedError(f"Reduce_on: {reduce_on} not implemented yet")
-    elif reduce_on == "sensor":
+    elif reduce_on == "sensor" or reduce_on == "axis":
+        if reduce_on == "axis":
+            window_names = datasets[0].window_names
+        else:
+            window_names = [
+                [w for w in datasets[0].window_names if s in w] for s in sensor_names
+            ]
+
+        window_datasets = []
+
+        # Loop over the windows
+        for i, wname in enumerate(window_names):
+            # Get the reducer class and instantiate it using the kwargs
+            reducer = reducers_cls[reducer_config.algorithm](**kwargs)
+            # Fit the reducer on the first dataset
+            reducer_window = datasets[0].windows(wname)
+            reducer.fit(reducer_window[:][0])
+            # Instantiate the WindowedTransform with fit_on=None and
+            # transform_on="all", i.e. the transform will be applied to
+            # whole dataset.
+            transform = WindowedTransform(
+                transform=reducer,
+                fit_on=None,
+                transform_on="all",
+            )
+            # Instantiate the TransformMultiModalDataset with the list of transforms
+            # and the new suffix
+            transformer = TransformMultiModalDataset(
+                transforms=[transform], new_window_name_prefix=f"{suffix}-{i}"
+            )
+            # Apply the transform to the remaining datasets
+            _window_datasets = []
+            for dataset in datasets[1:]:
+                dset_window = dataset.windows(wname)
+                dset_window = transformer(dset_window)
+                _window_datasets.append(dset_window)
+            window_datasets.append(_window_datasets)
+
+        # Merge dataset windows
+        datasets = [
+            multimodal_multi_merge([dataset[i] for dataset in window_datasets])
+            for i in range(len(window_datasets[0]))
+        ]
+        return datasets
+            
+
         raise NotImplementedError(f"Reduce_on: {reduce_on} not implemented yet")
     else:
         raise ValueError(
@@ -710,6 +760,7 @@ def run_ray(
     )
     return results
 
+
 if __name__ == "__main__":
     # ray.init(address="192.168.15.97:6379")
     parser = argparse.ArgumentParser(
@@ -729,9 +780,9 @@ if __name__ == "__main__":
         "--run-name",
         action="store",
         default="execution",
-        help="Name of the execution run. It will create a folder inside output dir " + \
-                "with this name and results will be placed inside. " + \
-                "Useful to run multiple executions with different configurations",
+        help="Name of the execution run. It will create a folder inside output dir "
+        + "with this name and results will be placed inside. "
+        + "Useful to run multiple executions with different configurations",
         type=str,
     )
 

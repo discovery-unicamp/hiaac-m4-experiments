@@ -4,12 +4,14 @@ import platform
 import re
 import socket
 import time
+from typing import List
 import uuid
 from pathlib import Path
 
 import psutil
 import yaml
 from librep.config.type_definitions import PathLike
+from librep.datasets.multimodal.multimodal import MultiModalDataset
 
 
 class catchtime:
@@ -71,3 +73,12 @@ def get_sys_info():
     except Exception as e:
         logging.exception("Error getting info")
         return dict()
+
+
+def multimodal_multi_merge(datasets: List[MultiModalDataset]) -> MultiModalDataset:
+    if len(datasets) < 2:
+        raise ValueError("At least two datasets are needed to merge")
+    merged = datasets[0]
+    for dataset in datasets[1:]:
+        merged = merged.merge(dataset)
+    return merged
