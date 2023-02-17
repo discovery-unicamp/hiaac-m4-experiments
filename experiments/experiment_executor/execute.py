@@ -3,9 +3,6 @@ import argparse
 import logging
 import sys
 import time
-import traceback
-import warnings
-from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List
@@ -30,6 +27,7 @@ from librep.datasets.multimodal import (
 from librep.metrics.report import ClassificationReport
 from librep.utils.workflow import MultiRunWorkflow, SimpleTrainEvalWorkflow
 from ray.util.multiprocessing import Pool
+from utils import catchtime, load_yaml, get_sys_info
 
 """This module is used to execute the experiments based on configuration files,
 written in YAML. The configuration files are writen in YAML and the valid keys 
@@ -69,47 +67,6 @@ The code is divided into four main parts:
 
 # Uncomment to remove warnings
 # warnings.filterwarnings("always")
-
-class catchtime:
-    """Utilitary class to measure time in a `with` python statement."""
-
-    def __enter__(self):
-        self.t = time.time()
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.e = time.time()
-
-    def __float__(self):
-        return float(self.e - self.t)
-
-    def __coerce__(self, other):
-        return (float(self), other)
-
-    def __str__(self):
-        return str(float(self))
-
-    def __repr__(self):
-        return str(float(self))
-
-
-def load_yaml(path: PathLike) -> dict:
-    """Utilitary function to load a YAML file.
-
-    Parameters
-    ----------
-    path : PathLike
-        The path to the YAML file.
-
-    Returns
-    -------
-    dict
-        A dictionary with the YAML file content.
-    """
-    path = Path(path)
-    with path.open("r") as f:
-        return yaml.load(f, Loader=yaml.CLoader)
-
 
 def load_datasets(
     dataset_locations: Dict[str, PathLike],
@@ -640,6 +597,7 @@ def run_experiment(
     additional_info["total_time"] = end_time - start_time
     additional_info["start_time"] = start_time
     additional_info["end_time"] = end_time
+    additional_info["system"] = get_sys_info()
 
     # ----------- 6. Save results ------------
     values = {
@@ -682,7 +640,9 @@ def run_wrapper(args) -> dict:
         config = from_dict(data_class=ExecutionConfig, data=load_yaml(yaml_config_file))
         # Create output file
         experiment_output_file = output_dir / f"{experiment_id}.yaml"
-        logging.info(f"Starting execution {experiment_id}. Output at {experiment_output_file}")
+        logging.info(
+            f"Starting execution {experiment_id}. Output at {experiment_output_file}"
+        )
 
         # Run experiment
         result = run_experiment(dataset_locations, experiment_output_file, config)
@@ -693,7 +653,10 @@ def run_wrapper(args) -> dict:
 
 
 def run_single_thread(
-    args: Any, dataset_locations: Dict[str, PathLike], execution_config_files: List[PathLike], output_path: PathLike
+    args: Any,
+    dataset_locations: Dict[str, PathLike],
+    execution_config_files: List[PathLike],
+    output_path: PathLike,
 ):
     """Runs the experiments sequentially, without parallelization.
 
@@ -715,7 +678,12 @@ def run_single_thread(
     return results
 
 
-def run_ray(args: Any, dataset_locations: Dict[str, PathLike], execution_config_files: List[PathLike], output_path: PathLike):
+def run_ray(
+    args: Any,
+    dataset_locations: Dict[str, PathLike],
+    execution_config_files: List[PathLike],
+    output_path: PathLike,
+):
     """Runs the experiments in parallel, using Ray.
 
     Parameters
@@ -742,7 +710,6 @@ def run_ray(args: Any, dataset_locations: Dict[str, PathLike], execution_config_
     )
     return results
 
-
 if __name__ == "__main__":
     # ray.init(address="192.168.15.97:6379")
     parser = argparse.ArgumentParser(
@@ -762,7 +729,9 @@ if __name__ == "__main__":
         "--run-name",
         action="store",
         default="execution",
-        help="Description of the experiment run",
+        help="Name of the execution run. It will create a folder inside output dir " + \
+                "with this name and results will be placed inside. " + \
+                "Useful to run multiple executions with different configurations",
         type=str,
     )
 
@@ -782,7 +751,7 @@ if __name__ == "__main__":
         help="Dataset locations YAML file",
         type=str,
         required=False,
-        default="./dataset_locations.yaml"
+        default="./dataset_locations.yaml",
     )
 
     parser.add_argument(
@@ -795,7 +764,9 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--ray", action="store_true", help="Run using ray (parallel/distributed execution)"
+        "--ray",
+        action="store_true",
+        help="Run using ray (parallel/distributed execution)",
     )
 
     parser.add_argument(
@@ -891,9 +862,13 @@ if __name__ == "__main__":
         # Run single
         if not args.ray:
             logging.warning("Running in single mode! (slow)")
-            results = run_single_thread(args, dataset_locations, execution_config_files, output_path)
+            results = run_single_thread(
+                args, dataset_locations, execution_config_files, output_path
+            )
         else:
-            results = run_ray(args, dataset_locations, execution_config_files, output_path)
+            results = run_ray(
+                args, dataset_locations, execution_config_files, output_path
+            )
             # ray.shutdown()
 
     if None in results:
