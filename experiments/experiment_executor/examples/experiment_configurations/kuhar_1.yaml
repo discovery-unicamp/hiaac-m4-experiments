@@ -1,8 +1,21 @@
-estimator:
-  algorithm: RandomForest
+version: "1.0"
+estimators:
+- algorithm: RandomForest
   kwargs:
     n_estimators: 100
   name: randomforest-100
+  num_runs: 10
+- algorithm: KNN
+  kwargs:
+    n_neighbors: 5
+  name: KNN-5
+  num_runs: 10
+- algorithm: SVM
+  kwargs:
+    C: 1.0
+    kernel: rbf
+  name: SVM-rbf-C1.0
+  num_runs: 1
 extra:
   in_use_features:
   - accel-x
@@ -13,8 +26,6 @@ extra:
   - gyro-z
   reduce_on: all
   scale_on: train
-  estimator_runs: 10
-  estimator_deterministic: false
 reducer:
   algorithm: umap
   kwargs:

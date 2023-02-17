@@ -3,6 +3,7 @@ import argparse
 import logging
 import sys
 import time
+import traceback
 import warnings
 from contextlib import contextmanager
 from dataclasses import asdict
@@ -513,6 +514,12 @@ def run_experiment(
 
     experiment_output_file = Path(experiment_output_file)
 
+    if config_version != config_to_execute.version:
+        raise ValueError(
+            f"Config version ({config_to_execute.version}) "
+            f"does not match the current version ({config_version})"
+        )
+
     # Useful variables
     additional_info = dict()
     start_time = time.time()
@@ -606,37 +613,38 @@ def run_experiment(
         #     display_labels=labels,
     )
 
+    all_results = []
+
     # Create Simple Workflow
-    workflow = SimpleTrainEvalWorkflow(
-        estimator=estimator_cls[config_to_execute.estimator.algorithm],
-        estimator_creation_kwags=config_to_execute.estimator.kwargs or {},
-        do_not_instantiate=False,
-        do_fit=True,
-        evaluator=reporter,
-    )
+    for estimator_cfg in config_to_execute.estimators:
+        results = dict()
 
-    # Create a multi execution workflow
-    num_runs = (
-        config_to_execute.extra.estimator_runs
-        if not config_to_execute.extra.estimator_deterministic
-        else 1
-    )
-    runner = MultiRunWorkflow(workflow=workflow, num_runs=num_runs)
+        workflow = SimpleTrainEvalWorkflow(
+            estimator=estimator_cls[estimator_cfg.algorithm],
+            estimator_creation_kwags=estimator_cfg.kwargs or {},
+            do_not_instantiate=False,
+            do_fit=True,
+            evaluator=reporter,
+        )
 
-    with catchtime() as classification_time:
-        results = runner(train_dset, test_dset)
-    additional_info["classification_time"] = float(classification_time)
+        # Create a multi execution workflow
+        runner = MultiRunWorkflow(workflow=workflow, num_runs=estimator_cfg.num_runs)
+        with catchtime() as classification_time:
+            results["results"] = runner(train_dset, test_dset)
+
+        results["classification_time"] = float(classification_time)
+        results["estimator"] = asdict(estimator_cfg)
+        all_results.append(results)
 
     end_time = time.time()
     additional_info["total_time"] = end_time - start_time
     additional_info["start_time"] = start_time
     additional_info["end_time"] = end_time
-    additional_info["num_runs"] = num_runs
 
     # ----------- 6. Save results ------------
     values = {
         "experiment": asdict(config_to_execute),
-        "results": results,
+        "report": all_results,
         "additional": additional_info,
     }
 
@@ -668,7 +676,7 @@ def run_wrapper(args) -> dict:
     output_dir: Path = Path(args[1])
     yaml_config_file: Path = Path(args[2])
     experiment_id = yaml_config_file.stem
-    result = dict()
+    result = None
     try:
         # Load config
         config = from_dict(data_class=ExecutionConfig, data=load_yaml(yaml_config_file))
@@ -679,7 +687,7 @@ def run_wrapper(args) -> dict:
         # Run experiment
         result = run_experiment(dataset_locations, experiment_output_file, config)
     except Exception as e:
-        logging.exception("Error while running experiment!")
+        logging.exception(f"Error while running experiment: {yaml_config_file}")
     finally:
         return result
 
@@ -700,8 +708,11 @@ def run_single_thread(
     output_path : PathLike
         Output path where the results will be stored.
     """
+    results = []
     for e in tqdm.tqdm(execution_config_files, desc="Executing experiments"):
-        run_wrapper((dataset_locations, output_path, e))
+        r = run_wrapper((dataset_locations, output_path, e))
+        results.append(r)
+    return results
 
 
 def run_ray(args: Any, dataset_locations: Dict[str, PathLike], execution_config_files: List[PathLike], output_path: PathLike):
@@ -724,11 +735,12 @@ def run_ray(args: Any, dataset_locations: Dict[str, PathLike], execution_config_
         run_wrapper,
         [(dataset_locations, output_path, e) for e in execution_config_files],
     )
-    final_res = list(
+    results = list(
         tqdm.tqdm(
             iterator, total=len(execution_config_files), desc="Executing experiments"
         )
     )
+    return results
 
 
 if __name__ == "__main__":
@@ -879,10 +891,15 @@ if __name__ == "__main__":
         # Run single
         if not args.ray:
             logging.warning("Running in single mode! (slow)")
-            run_single_thread(args, dataset_locations, execution_config_files, output_path)
+            results = run_single_thread(args, dataset_locations, execution_config_files, output_path)
         else:
-            run_ray(args, dataset_locations, execution_config_files, output_path)
-    print(f"Finished! It took {float(total_time):.4f} seconds!")
+            results = run_ray(args, dataset_locations, execution_config_files, output_path)
+            # ray.shutdown()
 
-    # Return OK
-    sys.exit(0)
+    if None in results:
+        logging.error("Finished with errors!")
+        print(f"\tFinished with errors! It took {float(total_time):.4f} seconds!")
+        sys.exit(1)
+    else:
+        print(f"\tFinished without errors! It took {float(total_time):.4f} seconds!")
+        sys.exit(0)

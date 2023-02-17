@@ -20,6 +20,8 @@ from librep.estimators import RandomForestClassifier, SVC, KNeighborsClassifier
 # YAML valid confuguration keys. 
 # The main experiment configuration class is `ExecutionConfig`
 
+config_version: str = "1.0"
+
 @dataclass
 class WindowedConfig:
     fit_on: Optional[str]
@@ -43,6 +45,7 @@ class EstimatorConfig:
     name: str
     algorithm: str
     kwargs: Optional[dict]= None
+    num_runs: Optional[int] = 1 # Number of runs (fit/predict) for the estimator
 
 @dataclass
 class ScalerConfig:
@@ -55,11 +58,12 @@ class ExtraConfig:
     in_use_features: list
     reduce_on: str # valid values: all, sensor, axis
     scale_on: str # valid values: self, train
-    estimator_runs: Optional[int] = 1 # number of runs (fit/predict) for the estimator
-    estimator_deterministic: Optional[bool] = False # if estimator is deterministic or not
 
 @dataclass
 class ExecutionConfig:
+    # control variables
+    version: str
+
     # Datasets to use
     reducer_dataset: Optional[List[str]]
     train_dataset: List[str]
@@ -71,9 +75,10 @@ class ExecutionConfig:
     # Scaler
     scaler: Optional[ScalerConfig]
     # Estimator
-    estimator: EstimatorConfig
+    estimators: List[EstimatorConfig]
     # Extra
     extra: ExtraConfig
+
 
 
 ################################################################################
