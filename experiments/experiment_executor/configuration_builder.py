@@ -1,10 +1,10 @@
 import argparse
 import itertools
+import sys
 from dataclasses import asdict
 from pathlib import Path
-import sys
-import tqdm
 
+import tqdm
 import yaml
 from config import *
 from utils import load_yaml
@@ -23,6 +23,7 @@ def main(args):
     intra_test_combinations = args.intra_test
     intra_reduce_combinations = args.intra_reduce
     same_train_test = args.same_train_test
+    same_reducer_train = args.same_reducer_train
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -68,22 +69,37 @@ def main(args):
                 combinations.append(f"{dset}[validation]")
             reducer_combinations.append(combinations)
 
-
     dataset_combinations = []
     for dset_list_train, dset_list_test, dset_list_reducer in itertools.product(
         train_combinations, test_combinations, reducer_combinations
     ):
+        train_set = set([i.split("[")[0] for i in dset_list_train])
+        test_set = set([i.split("[")[0] for i in dset_list_test])
+        reducer_set = set([i.split("[")[0] for i in dset_list_reducer])
+
+        if same_train_test and same_reducer_train:
+            if train_set == test_set == reducer_set:
+                dataset_combinations.append(
+                    [dset_list_train, dset_list_test, dset_list_reducer]
+                )
+            continue
         if same_train_test:
-            train_set = set([i.split("[")[0] for i in dset_list_train])
-            test_set = set([i.split("[")[0] for i in dset_list_test])
             if train_set == test_set:
                 dataset_combinations.append(
                     [dset_list_train, dset_list_test, dset_list_reducer]
                 )
-        else:
+            continue
+        if same_reducer_train:
+            if train_set == reducer_set:
+                dataset_combinations.append(
+                    [dset_list_train, dset_list_test, dset_list_reducer]
+                )
+            continue
+        if not same_train_test and not same_reducer_train:
             dataset_combinations.append(
                 [dset_list_train, dset_list_test, dset_list_reducer]
             )
+            continue
 
     all_combinations = list(
         itertools.product(
@@ -93,7 +109,7 @@ def main(args):
             template["in_use_features_list"],
             template["reduce_on"],
             template["scale_on"],
-            dataset_combinations
+            dataset_combinations,
         )
     )
 
@@ -104,7 +120,7 @@ def main(args):
         in_use_features,
         reduce_on,
         scale_on,
-        (train_dset, test_dset, reducer_dset)
+        (train_dset, test_dset, reducer_dset),
     ) in tqdm.tqdm(
         enumerate(all_combinations),
         total=len(all_combinations),
@@ -228,6 +244,14 @@ if __name__ == "__main__":
         "--same-train-test",
         action="store_true",
         help="Use the same train and test datasets",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-sr",
+        "--same-reducer-train",
+        action="store_true",
+        help="Use the same reducert and train datasets",
         required=False,
     )
 
