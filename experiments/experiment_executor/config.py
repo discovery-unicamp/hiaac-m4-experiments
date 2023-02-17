@@ -68,7 +68,6 @@ class ExtraConfig:
 class ExecutionConfig:
     # control variables
     version: str
-
     # Datasets to use
     reducer_dataset: Optional[List[str]]
     train_dataset: List[str]
