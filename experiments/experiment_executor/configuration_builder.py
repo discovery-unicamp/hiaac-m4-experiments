@@ -68,6 +68,7 @@ def main(args):
                 combinations.append(f"{dset}[train]")
                 combinations.append(f"{dset}[validation]")
             reducer_combinations.append(combinations)
+        reducer_combinations.append("")
 
     dataset_combinations = []
     for dset_list_train, dset_list_test, dset_list_reducer in itertools.product(
@@ -113,7 +114,8 @@ def main(args):
         )
     )
 
-    for i, (
+    exp_id = 0
+    for (
         reducer,
         transforms,
         scaler,
@@ -122,12 +124,18 @@ def main(args):
         scale_on,
         (train_dset, test_dset, reducer_dset),
     ) in tqdm.tqdm(
-        enumerate(all_combinations),
+        all_combinations,
         total=len(all_combinations),
         desc="Building configurations",
     ):
         estimators = [EstimatorConfig(**e) for e in template["estimators"]]
         reducer_config = ReducerConfig(**reducer) if reducer else None
+        if reducer_config is None:
+            if reducer_dset:
+                continue
+            else:
+                reducer_dset = None
+
         scaler_config = ScalerConfig(**scaler) if scaler else None
         transform_list = (
             [TransformConfig(**t) for t in transforms] if transforms else None
@@ -149,11 +157,12 @@ def main(args):
         )
 
         config = asdict(config)
-        output_file = output_dir / f"{prefix}{str(i).zfill(5)}.yaml"
+        output_file = output_dir / f"{prefix}{str(exp_id).zfill(5)}.yaml"
         with open(output_file, "w") as f:
             yaml.dump(config, f, sort_keys=True, indent=4, default_flow_style=False)
+        exp_id += 1
 
-    print(f"Built {len(all_combinations)} configurations and saved to {output_dir}")
+    print(f"Built {exp_id} configurations and saved to {output_dir}")
 
 
 if __name__ == "__main__":
