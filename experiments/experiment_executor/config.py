@@ -136,8 +136,8 @@ transforms_cls = {
 # the same interface (scikit-learn compatible, fit/transform methods)
 scaler_cls = {
     "identity": Identity,
-    "std_scaler": StandardScaler,
-    "min_max_scaler": MinMaxScaler,
+    "StandardScaler": StandardScaler,
+    "MinMaxScaler": MinMaxScaler,
 }
 
 # Dictionary with standard labels for each activity code
