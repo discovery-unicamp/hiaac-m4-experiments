@@ -14,7 +14,12 @@ pip install -r requirements.txt
 
 ### Using docker image
 
-TO BE DONE
+You may use the docker image to run the experiments. It can be built using the `Dockerfile` file.
+
+```
+docker build -t experiment-executor .
+
+```
 
 ## Execution
 
@@ -39,7 +44,7 @@ More options and information about the execution can be found by executing `pyth
 
 ## Experiment configuration files
 
-Each YAML configuration file represents one experiment and has all information to execute it (such as the datasets to be used, the transforms to be applied, and the classification algorithms). The executor script (`execute.py`) reads a folder with several experiment configuration files and executes each one sequentially or in parallel. Usually, the name of the configuration file is also the experiment id (in the YAML file).
+Each YAML configuration file represents one experiment and has all information to execute it (such as the datasets to be used, the transforms to be applied, and the classification algorithms). The executor script (`execute.py`) reads a folder with several experiment configuration files and executes each one sequentially or in parallel. Usually, the name of the configuration file is also the experiment ID (in the YAML file).
 
 The `execute.py` script will perform the following steps:
 
@@ -113,12 +118,24 @@ scaler:                             # Especifies the scaler algorithm
                                     # (can be null or a dictionary)
   name: StandardScalerUse           # Symbolic scaler name
 
-estimator:                          # Information about the classification algorithm (for step 5)
-  algorithm: RandomForest           # Name of the algorithm. Valid algorithm names are under 
+estimators:                         # List of estimators to be executed  (for step 5)
+- algorithm: RandomForest           # Name of the algorithm. Valid algorithm names are under 
                                     # estimator_cls in file config.py
   kwargs:                           # Parameters for algorithm creation
-    n_estimators: 100               # Number of trees
+    n_estimators: 100               # Random Forest creation keyworded arguments
   name: randomforest-100            # Symbolic estimator name
+  num_runs: 10                      # Number of times to execute the estimator
+- algorithm: KNN                    # Other estimator
+  kwargs:
+    n_neighbors: 5
+  name: KNN-5
+  num_runs: 10
+- algorithm: SVM                    # Other estimator
+  kwargs:
+    C: 1.0
+    kernel: rbf
+  name: SVM-rbf-C1.0
+  num_runs: 1
 
 extra:                              # Extra options for execution
   in_use_features:                  # List of features to be used for loading datasets.
@@ -141,13 +158,9 @@ extra:                              # Extra options for execution
                                     # then applied to the train and test datasets. 
                                     # "self" means that the scaler will be fit and 
                                     # applied to each dataset (train, test).
-  estimator_runs: 5                 # Number of times the estimator will run (fit and predict)
-  estimator_deterministic: false    # If the algorithm is deterministic (if true, the 
-                                    # estimator_runs will be ignored, and the estimator will
-                                    # be fit and predict only once)
 ```
 
-To work, users must first download the datasets and extract them in a folder as they wish. The valid dataset names are defined an external YAML file (`dataset_locations.yaml`), where the key is the dataset name and view (used in the datasets sections in the YAML file) and the value is the path to the dataset, relative to the `--data-root` argument. 
+To work, users must first download the datasets and extract them in a folder as they wish. The valid dataset names and relative path are defined an external YAML file (`dataset_locations.yaml`), where the key is the dataset name and view (used in the datasets sections in the YAML file) and the value is the path to the dataset, relative to the `--data-root` argument. 
 
 It is assumed that all datasets will have the `train.csv`, `validation.csv`, and `test.csv` files. Besides that, the datasets must have `accel-x`, `accel-y`, `accel-z`, `gyro-x`, `gyro-y`, and `gyro-z` columns. 
 
@@ -157,7 +170,7 @@ More examples can be found in the `examples` directory. They can be executed (pa
 python execute.py examples/experiment_configurations/ -o examples/results/ -d data/processed/ --ray --skip-existing
 ```
 
-**NOTE**: The `-d` option is used to specify the path to the datasets and should point to the dataset root directory.
+The `-d` option is used to specify the path to the datasets and should point to the dataset root directory. The `--ray` option is used to execute the experiments in parallel using Ray.
 
 ## How to alter the execution flow and add new options
 
@@ -168,4 +181,4 @@ The valid values for configuration files are defined in the `config.py` file, in
 
 ## Running experiments in a distributed environment
 
-TO BE DONE
+We use Ray to run experiments in a distributed environment. Each machine will be a worker and will receive a configuration to execute the `run_experiment` function in parallel, with all available cores. The workers will be connected to a head node, which will be responsible for distributing the work. One of the workers will be the head node, which will be responsible for distributing the work.
