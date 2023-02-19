@@ -750,17 +750,25 @@ def run_ray(
         Output path where the results will be stored.
     """
     ray.init(args.address)
-    pool = Pool()
-    iterator = pool.imap(
-        run_wrapper,
-        [(dataset_locations, output_path, e) for e in execution_config_files],
-    )
-    results = list(
-        tqdm.tqdm(
-            iterator, total=len(execution_config_files), desc="Executing experiments"
-        )
-    )
-    return results
+    remote_func = ray.remote(run_wrapper)
+    futures = [
+        remote_func.remote((dataset_locations, output_path, e))
+        for e in execution_config_files
+    ]
+    ready, not_ready = ray.wait(futures, num_returns=len(futures))
+
+    
+    # pool = Pool()
+    # iterator = pool.imap(
+    #     run_wrapper,
+    #     [(dataset_locations, output_path, e) for e in execution_config_files],
+    # )
+    # results = list(
+    #     tqdm.tqdm(
+    #         iterator, total=len(execution_config_files), desc="Executing experiments"
+    #     )
+    # )
+    return ready
 
 
 if __name__ == "__main__":
