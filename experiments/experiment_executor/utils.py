@@ -76,8 +76,6 @@ def get_sys_info():
 
 
 def multimodal_multi_merge(datasets: List[MultiModalDataset]) -> MultiModalDataset:
-    if len(datasets) < 2:
-        raise ValueError("At least two datasets are needed to merge")
     merged = datasets[0]
     for dataset in datasets[1:]:
         merged = merged.merge(dataset)

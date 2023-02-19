@@ -327,8 +327,10 @@ def do_reduce(
             window_names = [
                 [w for w in datasets[0].window_names if s in w] for s in sensor_names
             ]
+            window_names = [w for w in window_names if w]
 
         window_datasets = []
+
 
         # Loop over the windows
         for i, wname in enumerate(window_names):
