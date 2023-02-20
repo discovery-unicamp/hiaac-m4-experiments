@@ -512,15 +512,6 @@ def run_experiment(
     ValueError
         If the reducer is specified but the reducer_dataset is not specified.
     """
-    # Some sanity checks
-    if (
-        config_to_execute.reducer is not None
-        and config_to_execute.reducer_dataset is None
-    ):
-        raise ValueError(
-            "If reducer is specified, reducer_dataset must be specified as well"
-        )
-
     experiment_output_file = Path(experiment_output_file)
 
     if config_version != config_to_execute.version:
