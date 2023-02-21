@@ -133,8 +133,9 @@ def main(args):
         if reducer_config is None:
             if reducer_dset:
                 continue
-            else:
-                reducer_dset = None
+
+        if not reducer_dset:
+            reducer_dset = None
 
         scaler_config = ScalerConfig(**scaler) if scaler else None
         transform_list = (
