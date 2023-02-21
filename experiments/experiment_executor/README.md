@@ -48,10 +48,10 @@ Each YAML configuration file represents one experiment and has all information t
 
 The `execute.py` script will perform the following steps:
 
-1. Load the datasets
-2. Apply the non-parametric transforms
-3. Apply the reducer algorithm
-4. Apply the scaler algorithm
+1. Load the datasets (reducer, train and test datasets)
+2. Apply the non-parametric transforms (*e.g.*, FFT, etc)
+3. Apply the reducer algorithm (if defined). The reducer algorithm is fit to the reducer dataset, and then the train and test datasets are transformed.
+4. Apply the scaler algorithm (if defined).
 5. Apply the estimator algorithm
 6. Save the results
 
@@ -59,118 +59,130 @@ The configuration file controls the behavior of execution and has the following 
 
 
 ```yaml
-reducer_dataset:                                
-- motionsense.standartized_balanced[train]  # List of datasets used in reducer algorithm (in order). 
-                                            # The datasets will be merged into a single dataset. 
-                                            # The dataset name must be in the format 
-                                            # <dataset_name>.<dataset_view>[<dataset_split>] 
-                                            # where:
-                                            # - dataset_name: name of the dataset
-                                            # - dataset_view: view of the dataset
-                                            # - dataset_split: split of the dataset
-                                            #    (train, validation, or test)
-                                            # Valid dataset values are found in the file
-                                            # dataset_locations.yaml
-- motionsense.standartized_balanced[validation]
-test_dataset:                               # List of datasets used in the test (in order). 
-                                            # The datasets will be merged into a single dataset. 
-                                            # The dataset name must be in the format 
-                                            # <dataset_name>.<dataset_view>[<dataset_split>] 
-                                            # Valid dataset values are found in the file
-                                            # dataset_locations.yaml
-- kuhar.standartized_balanced[test]
-train_dataset:                              # List of datasets used in train (in order).                                     
-                                            # The datasets will be merged into a single dataset. 
-                                            # The dataset name must be in the format 
-                                            # <dataset_name>.<dataset_view>[<dataset_split>] 
-                                            # Valid dataset values are found in the file
-                                            # dataset_locations.yaml
-- kuhar.standartized_balanced[train]
-- kuhar.standartized_balanced[validation]
+estimators:                       # List of estimators to be executed
+-   algorithm: RandomForest       # (estimator 0) Algorithm to be used. 
+                                  # Valid algorithms can be found in the
+                                  # config.py file, in the `estimator_cls`
+                                  # dictionary.
+    kwargs:                       # (estimator 0) Algorithm crreation parameters
+        n_estimators: 100         # (estimator 0) Number of estimators (RF)
+    name: randomforest-100        # (estimator 0) Symbolic name of the estimator
+    num_runs: 10                  # (estimator 0) Number of runs to be executed
+                                  # for this estimator
+-   algorithm: KNN                # (estimator 1) Algorithm to be used
+    kwargs:                       # ...
+        n_neighbors: 5
+    name: KNN-5
+    num_runs: 10
+-   algorithm: SVM                # (estimator 2) Algorithm to be used
+    kwargs:                       # ...
+        C: 1.0
+        kernel: rbf
+    name: SVM-rbf-C1.0
+    num_runs: 10
 
-transforms:                         # List of non-parametric transforms to be applied in order)
-- kwargs:                           # Parameters for transform creation 
-                                    # (can be null or a dictionary)
-    centered: true                      
-  name: fft_transform.0             # Symbolic transform name
-  transform: fft                    # Name of the transform. 
-                                    # Valid transform names are under transforms_cls in file config.py
-  windowed: null                    # Windowed transform controls.
-                                    # It may be null (equals to fit_on=null, transform_on=window)
-                                    # or a dictionary with the two keys:
-                                    # - fit_on: null (do not do fit) or 
-                                    #     all (fit on the whole dataset)
-                                    # - transform_on: null (do not do transform) or
-                                    #     all (transform on the whole dataset) or
-                                    #     window (apply the transform to each window)
+extra:                            # Extra information to be configure the 
+                                  # experiment execution
+    in_use_features:              # List of features to be used.
+    - accel-x
+    - accel-y
+    - accel-z
+    - gyro-x
+    - gyro-y
+    - gyro-z
+    reduce_on: sensor             # How dimensionality reduction algorithms
+                                  # will be applied. Valid values are:
+                                  # - all: apply the reducer to the whole
+                                  # dataset
+                                  # - sensor: apply the reducer to each sensor
+                                  # separately, then concatenate the arrays
+                                  # - axis: apply the reducer to each axis
+                                  # of each sensor separately, 
+                                  # then concatenate the arrays
+    scale_on: train               # How the scaler will be applied. Valid
+                                  # values are:
+                                  # - train: fit the scaler on the train
+                                  # dataset and transform the train and
+                                  # test datasets
+                                  # - self: fit and transform on train
+                                  # and test datasets separately
 
-reducer:                            # Especifies the reducer algorithm
-  algorithm: umap                   # Name of the reducer. Valid values names are under 
-                                    # reducers_cls in the file config.py
-  kwargs:                           # Parameters for algorithm's creation
-    n_components: 25
-  name: umap-25-all                 # Symbolic reducer name
+reducer_dataset:                  # List of datasets to be used to fit the
+                                  # reducer algorithm (it can be null). 
+                                  # The name of the datasets must be defined 
+                                  # in the `dataset_locations.yaml` file. 
+                                  # All datasets follows the format:
+                                  # <dataset_name>.<view>[<split>] where:
+                                  # - dataset_name: name of the dataset
+                                  # - view: view of the dataset
+                                  # - split: split of the dataset (train, 
+                                  # validation or test).
+                                  # If multiple datasets are defined, they
+                                  # will be concatenated, before applying
+                                  # the reducer algorithm.
+- motionsense.standartized_intra_balanced[train]
+- motionsense.standartized_intra_balanced[validation]
+test_dataset:                     # List of datasets that will be used to
+                                  # test the estimators. Follows the same
+                                  # format as the reducer_dataset.
+- motionsense.standartized_intra_balanced[test]
+train_dataset:                    # List of datasets that will be used to
+                                  # train the estimators. Follows the same
+                                  # format as the reducer_dataset.
+- motionsense.standartized_intra_balanced[train]
+- motionsense.standartized_intra_balanced[validation]
 
-scaler:                             # Especifies the scaler algorithm
-  algorithm: std_scaler             # Name of the scaler. Valid values names are 
-                                    # under scalers_cls in the file config.py
-  kwargs: null                      # Parameters for algorithm's creation
-                                    # (can be null or a dictionary)
-  name: StandardScalerUse           # Symbolic scaler name
+reducer:                          # Information about the reducer algorithm
+                                  # (it can be null).
+    algorithm: umap               # Algorithm to be used. Valid algorithms
+                                  # can be found in the config.py file, in
+                                  # the `reducer_cls` dictionary.
+    kwargs:                       # Algorithm creation parameters 
+                                  # (it can be null)
+        n_components: 5           # Number of components to be reduced
+    name: umap-5                  # Symbolic name of the reducer
 
-estimators:                         # List of estimators to be executed  (for step 5)
-- algorithm: RandomForest           # Name of the algorithm. Valid algorithm names are under 
-                                    # estimator_cls in file config.py
-  kwargs:                           # Parameters for algorithm creation
-    n_estimators: 100               # Random Forest creation keyworded arguments
-  name: randomforest-100            # Symbolic estimator name
-  num_runs: 10                      # Number of times to execute the estimator
-- algorithm: KNN                    # Other estimator
-  kwargs:
-    n_neighbors: 5
-  name: KNN-5
-  num_runs: 10
-- algorithm: SVM                    # Other estimator
-  kwargs:
-    C: 1.0
-    kernel: rbf
-  name: SVM-rbf-C1.0
-  num_runs: 1
+scaler:                           # Information about the scaler algorithm
+                                  # (it can be null).
+    algorithm: StandardScaler     # Algorithm to be used. Valid algorithms
+                                  # can be found in the config.py file, in
+                                  # the `scaler_cls` dictionary.
+    kwargs: null                  # Algorithm creation parameters
+                                  # (it can be null)
+    name: StandardScaler          # Symbolic name of the scaler
 
-extra:                              # Extra options for execution
-  in_use_features:                  # List of features to be used for loading datasets.
-                                    # The dataframe columns will be filtred with columns
-                                    # starts with any of the prefixes in this list 
-  - accel-x
-  - accel-y
-  - accel-z
-  - gyro-x
-  - gyro-y
-  - gyro-z
-  reduce_on: all                    # It can be: "all": if the reducer algorithm will be
-                                    # applied over all features
-                                    # "sensor": if the reducer will be applied one per 
-                                    # sensor (will have multiple reducers)
-                                    # "axis": if the reducer will be applied one per 
-                                    # axis of the sensor (will have multiple reducers)
-  scale_on: train                   # It can be: "train" or "self". "train" means that
-                                    # the scaler will fit on the training dataset and
-                                    # then applied to the train and test datasets. 
-                                    # "self" means that the scaler will be fit and 
-                                    # applied to each dataset (train, test).
+transforms:                       # List of transforms to be applied (in order)
+    transform: fft                # (transform 0) Transform to be applied. Valid
+                                  # transforms can be found in the config.py
+                                  # file, in the `transform_cls` dictionary.
+-   kwargs:                       # (transform 0) Algorithm creation parameters
+        centered: true            # (transform 0) If the FFT should be centered
+    name: FFT-centered            # (transform 0) Symbolic name of the transform
+    windowed: null                # Windowed transform controls.
+                                  # It may be null (equals to fit_on=null
+                                  # transform_on=window)
+                                  # or a dictionary with the two keys:
+                                  # - fit_on: null (do not do fit) or 
+                                  #     all (fit on the whole dataset)
+                                  # - transform_on: null (do not do transform) or
+                                  #     all (transform on the whole dataset) or
+                                  #     window (apply the transform to each window)
+version: '1.0'                    # Version of the configuration file 
+                                  # (it must be a string).
+
 ```
 
 To work, users must first download the datasets and extract them in a folder as they wish. The valid dataset names and relative path are defined an external YAML file (`dataset_locations.yaml`), where the key is the dataset name and view (used in the datasets sections in the YAML file) and the value is the path to the dataset, relative to the `--data-root` argument. 
 
 It is assumed that all datasets will have the `train.csv`, `validation.csv`, and `test.csv` files. Besides that, the datasets must have `accel-x`, `accel-y`, `accel-z`, `gyro-x`, `gyro-y`, and `gyro-z` columns. 
 
-More examples can be found in the `examples` directory. They can be executed (parallel) with the following command:
+More examples can be found in the `examples` directory and the respective results in `examples/results/execution` directory. They can be executed (parallel) with the following command:
 
 ```bash
 python execute.py examples/experiment_configurations/ -o examples/results/ -d data/processed/ --ray --skip-existing
 ```
 
-The `-d` option is used to specify the path to the datasets and should point to the dataset root directory. The `--ray` option is used to execute the experiments in parallel using Ray.
+The `-d` option is used to specify the path to the datasets and should point to the dataset root directory (where have `raw_balanced`, `standartized_balanced` datasets). The `--ray` option is used to execute the experiments in parallel using Ray.
 
 ## How to alter the execution flow and add new options
 
@@ -181,4 +193,51 @@ The valid values for configuration files are defined in the `config.py` file, in
 
 ## Running experiments in a distributed environment
 
-We use Ray to run experiments in a distributed environment. Each machine will be a worker and will receive a configuration to execute the `run_experiment` function in parallel, with all available cores. The workers will be connected to a head node, which will be responsible for distributing the work. One of the workers will be the head node, which will be responsible for distributing the work.
+We use Ray to run experiments in a distributed environment. Each machine will be a worker and will receive a configuration to execute the `run_experiment` function in parallel, with all available cores. The workers will be connected to a head node, which will be responsible for distributing the work.
+
+We expect all workers have the same configuration files and datasets, all at same location (this is easier using Docker). Also, we expect all workers have the same Python environment, with all dependencies installed. Finally, all workers must be able to communicate with the head node.
+
+### Starting the head node
+
+First, log into a node and start the head node, using the following command:
+
+
+```bash
+ray start --head --block --include-dashboard true
+```
+
+This will start the head node and block the terminal. The `--block` parameter is optional, and it allows to stop it using SIGINT (i.e., control+C). You can access the dashboard by opening the URL printed in the terminal (usually `http://localhost:8265`).
+
+The head node address is printed in the terminal. It will be used to connect the workers. It is something like:
+
+```bash
+
+Next steps
+  To connect to this Ray runtime from another node, run
+    ray start --address='192.168.1.112:6379'
+
+...
+```
+
+In this case the head node operates at address: `192.168.1.112` and port: `6379`.
+
+
+### Starting the workers
+
+Log into the other nodes and start the workers, using the following command:
+
+```bash
+ray start --address 192.168.1.112:6379 --block
+```
+
+The `--address` parameter must be the address of the head node. The `--block` parameter is optional, and it allows to stop it using SIGINT (i.e., control+C).
+
+### Submitting the experiments
+
+Now, you can submit the experiments to the cluster, passing the `--ray` and `--address` parameters to the `execute.py` script. The `--address` parameter must be the address of the head node. The `--skip-existing` parameter is optional, and it allows to skip experiments that already have results. The `--data-root` parameter must be the path to the datasets root directory.:
+
+```bash
+python execute.py examples/experiment_configurations/ -o examples/results/ -d data/processed/ --ray --address 192.168.1.112:6379 --skip-existing
+```
+
+The experiments will be distributed among the workers. You can monitor the execution in the dashboard (usually `http://localhost:8265`).
