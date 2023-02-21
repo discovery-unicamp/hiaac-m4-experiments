@@ -1,0 +1,42 @@
+estimators:
+-   algorithm: RandomForest
+    kwargs:
+        n_estimators: 100
+    name: randomforest-100
+    num_runs: 10
+-   algorithm: KNN
+    kwargs:
+        n_neighbors: 5
+    name: KNN-5
+    num_runs: 10
+-   algorithm: SVM
+    kwargs:
+        C: 1.0
+        kernel: rbf
+    name: SVM-rbf-C1.0
+    num_runs: 10
+extra:
+    in_use_features:
+    - gyro-x
+    - gyro-y
+    - gyro-z
+    reduce_on: axis
+    scale_on: train
+reducer:
+    algorithm: umap
+    kwargs:
+        n_components: 10
+    name: umap-10
+reducer_dataset:
+- uci.standartized_intra_balanced[train]
+- uci.standartized_intra_balanced[validation]
+- wisdm.standartized_intra_balanced[train]
+- wisdm.standartized_intra_balanced[validation]
+scaler: null
+test_dataset:
+- wisdm.standartized_intra_balanced[test]
+train_dataset:
+- wisdm.standartized_intra_balanced[train]
+- wisdm.standartized_intra_balanced[validation]
+transforms: null
+version: '1.0'
