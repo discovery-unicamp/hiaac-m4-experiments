@@ -579,7 +579,7 @@ def run_experiment(
 
     with catchtime() as reduce_time:
         # Is there any reducer to do?
-        if config_to_execute.reducer is not None:
+        if config_to_execute.reducer is not None and reducer_dset is not None:
             train_dset, test_dset = do_reduce(
                 datasets=[reducer_dset, train_dset, test_dset],
                 reducer_config=config_to_execute.reducer,
