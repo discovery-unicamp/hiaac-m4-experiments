@@ -23,7 +23,7 @@ extra:
     - gyro-x
     - gyro-y
     - gyro-z
-    reduce_on: all
+    reduce_on: sensor
     scale_on: train
 reducer:
     algorithm: umap
@@ -31,15 +31,23 @@ reducer:
         n_components: 2
     name: umap-2
 reducer_dataset:
-- realworld.standartized_intra_balanced[train]
-- realworld.standartized_intra_balanced[validation]
-- uci.standartized_intra_balanced[train]
-- uci.standartized_intra_balanced[validation]
-scaler: null
+- motionsense.raw_balanced[train]
+- motionsense.raw_balanced[validation]
+scaler:
+    algorithm: StandardScaler
+    kwargs: null
+    name: StandardScaler
 test_dataset:
-- wisdm.standartized_intra_balanced[test]
+- motionsense.raw_balanced[test]
 train_dataset:
-- wisdm.standartized_intra_balanced[train]
-- wisdm.standartized_intra_balanced[validation]
-transforms: null
+- motionsense.raw_balanced[train]
+- motionsense.raw_balanced[validation]
+transforms:
+-   kwargs:
+        centered: true
+    name: FFT-centered
+    transform: fft
+    windowed:
+        fit_on: null
+        transform_on: window
 version: '1.0'
