@@ -1,24 +1,17 @@
 import argparse
 from pathlib import Path
-import traceback
-from typing import Union
 
 import numpy as np
 import pandas as pd
-import yaml
 from tqdm.contrib.concurrent import thread_map
+from utils import load_yaml
 
-
-def load_yaml(path: Union[Path, str]) -> dict:
-    path = Path(path)
-    with path.open("r") as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
 
 def get_result(result_file: Path):
     results = []
     result = load_yaml(result_file)
     transforms = result["experiment"]["transforms"] or []
-    reducer_datasets  = result["experiment"]["reducer_dataset"] or []
+    reducer_datasets = result["experiment"]["reducer_dataset"] or []
     scaler = result["experiment"]["scaler"] or {}
     reducer = result["experiment"]["reducer"] or {}
     n_components = 0
@@ -46,15 +39,44 @@ def get_result(result_file: Path):
 
     for report in result["report"]:
         classifier_result = fmt_result.copy()
-        classifier_result["estimator"] = report["estimator"]["name"]           
-        classifier_result["accuracy (mean)"] = np.mean([x["accuracy"] for r in report["results"]["runs"] for x in r["result"]])
-        classifier_result["accuracy (std)"] = np.std([x["accuracy"] for r in report["results"]["runs"] for x in r["result"]])
-        classifier_result["f1-score macro (mean)"] = np.mean([x["f1 score (macro)"] for r in report["results"]["runs"] for x in r["result"]])
-        classifier_result["f1-score macro (std)"] = np.std([x["f1 score (macro)"] for r in report["results"]["runs"] for x in r["result"]])
-        classifier_result["f1-score weighted (mean)"] = np.mean([x["f1 score (weighted)"] for r in report["results"]["runs"] for x in r["result"]])
-        classifier_result["f1-score weighted (std)"] = np.std([x["f1 score (weighted)"] for r in report["results"]["runs"] for x in r["result"]])
+        classifier_result["estimator"] = report["estimator"]["name"]
+        classifier_result["accuracy (mean)"] = np.mean(
+            [x["accuracy"] for r in report["results"]["runs"] for x in r["result"]]
+        )
+        classifier_result["accuracy (std)"] = np.std(
+            [x["accuracy"] for r in report["results"]["runs"] for x in r["result"]]
+        )
+        classifier_result["f1-score macro (mean)"] = np.mean(
+            [
+                x["f1 score (macro)"]
+                for r in report["results"]["runs"]
+                for x in r["result"]
+            ]
+        )
+        classifier_result["f1-score macro (std)"] = np.std(
+            [
+                x["f1 score (macro)"]
+                for r in report["results"]["runs"]
+                for x in r["result"]
+            ]
+        )
+        classifier_result["f1-score weighted (mean)"] = np.mean(
+            [
+                x["f1 score (weighted)"]
+                for r in report["results"]["runs"]
+                for x in r["result"]
+            ]
+        )
+        classifier_result["f1-score weighted (std)"] = np.std(
+            [
+                x["f1 score (weighted)"]
+                for r in report["results"]["runs"]
+                for x in r["result"]
+            ]
+        )
         results.append(classifier_result)
     return results
+
 
 def get_result_wrapper(result_file: Path):
     try:
@@ -65,17 +87,19 @@ def get_result_wrapper(result_file: Path):
         return []
 
 
-
 def main(results_dir: Path, output: Path, workers: int = None):
     results = []
     files = list(results_dir.rglob("*.yaml"))
-    all_results = thread_map(get_result_wrapper, files, max_workers=workers, desc="Reading files")
+    all_results = thread_map(
+        get_result_wrapper, files, max_workers=workers, desc="Reading files"
+    )
     results = [r for rs in all_results for r in rs]
 
     print("Generating Dataframe...")
     results = pd.DataFrame(results)
     results.to_csv(output, index=False)
     print(f"Results saved to {output}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -88,7 +112,7 @@ if __name__ == "__main__":
         "root_results_path",
         action="store",
         help="Path with the results (in yaml format)",
-        type=str
+        type=str,
     )
 
     parser.add_argument(
@@ -98,7 +122,7 @@ if __name__ == "__main__":
         default="results.csv",
         help="Output file to store csv file",
         type=str,
-        required=False
+        required=False,
     )
 
     parser.add_argument(
@@ -108,7 +132,7 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="Maximum number of workers to use",
-        required=False
+        required=False,
     )
 
     args = parser.parse_args()
