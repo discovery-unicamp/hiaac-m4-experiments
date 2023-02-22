@@ -241,3 +241,9 @@ python execute.py examples/experiment_configurations/ -o examples/results/ -d da
 ```
 
 The experiments will be distributed among the workers. You can monitor the execution in the dashboard (usually `http://localhost:8265`).
+
+### Stopping the cluster
+
+To stop the cluster, you must stop the head node and the workers. To stop the head node, you can use SIGINT (control+C) or kill the process. To stop the workers, you can use SIGINT (control+C) or kill the process.
+
+If the `--block` option was not used, you may use `ray stop` to stop the head node and the workers.
