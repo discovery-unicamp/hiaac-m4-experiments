@@ -64,6 +64,7 @@ Where the `original` directory contains the original datasets (as they are downl
 
 To generate the datasets, you can run the notebooks, which are in this directory. Notebooks whose file name starts with `1` must be run first, then the notebooks whose file name starts with `2`, and so on. Notebooks with the same initial number can be run in parallel, in any order.
 The `1` notebooks generate the `raw balanced` datasets, `standardized balanced` datasets, and `unbalanced` datasets. The notebooks will generate the datasets in the `preliminary_analisys/datasets_preprocessing/data` directory.
+The `2` notebooks generate the `standartized_intra_balanced`, that balances each dataset based the minimum number of classes per split (train, validation or test), of all datasets.
 
 
 ## Standardization Process

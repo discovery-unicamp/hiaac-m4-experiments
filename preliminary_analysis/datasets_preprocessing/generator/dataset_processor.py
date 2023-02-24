@@ -73,23 +73,28 @@ class SplitGuaranteeingAllClassesPerSplit:
 
 class BalanceToMinimumClass:
     def __init__(
-        self, class_column: str = "standard activity code", random_state: int = 42
+        self,
+        class_column: str = "standard activity code",
+        random_state: int = 42,
+        min_value: int = None,
     ):
         self.class_column = class_column
         self.random_state = random_state
+        self.min_value = min_value
 
     def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         class_values = dataframe[self.class_column].unique()
-        min_class_size = min(
-            [
-                len(dataframe.loc[dataframe[self.class_column] == class_value])
-                for class_value in class_values
-            ]
-        )
+        if self.min_value is None:
+            self.min_value = min(
+                [
+                    len(dataframe.loc[dataframe[self.class_column] == class_value])
+                    for class_value in class_values
+                ]
+            )
         balanced_df = pd.concat(
             [
                 dataframe.loc[dataframe[self.class_column] == class_value].sample(
-                    min_class_size, random_state=self.random_state
+                    self.min_value, random_state=self.random_state
                 )
                 for class_value in class_values
             ]
