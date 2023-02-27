@@ -152,10 +152,10 @@ scaler:                           # Information about the scaler algorithm
     name: StandardScaler          # Symbolic name of the scaler
 
 transforms:                       # List of transforms to be applied (in order)
-    transform: fft                # (transform 0) Transform to be applied. Valid
+-   transform: fft                # (transform 0) Transform to be applied. Valid
                                   # transforms can be found in the config.py
                                   # file, in the `transform_cls` dictionary.
--   kwargs:                       # (transform 0) Algorithm creation parameters
+    kwargs:                       # (transform 0) Algorithm creation parameters
         centered: true            # (transform 0) If the FFT should be centered
     name: FFT-centered            # (transform 0) Symbolic name of the transform
     windowed: null                # Windowed transform controls.

@@ -84,6 +84,7 @@ class BalanceToMinimumClass:
 
     def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         class_values = dataframe[self.class_column].unique()
+
         min_value = self.min_value
 
         if self.min_value is None:
