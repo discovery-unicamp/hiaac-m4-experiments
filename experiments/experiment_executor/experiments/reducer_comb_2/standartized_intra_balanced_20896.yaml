@@ -1,0 +1,52 @@
+estimators:
+-   algorithm: RandomForest
+    kwargs:
+        n_estimators: 100
+    name: randomforest-100
+    num_runs: 10
+-   algorithm: KNN
+    kwargs:
+        n_neighbors: 5
+    name: KNN-5
+    num_runs: 10
+-   algorithm: SVM
+    kwargs:
+        C: 1.0
+        kernel: rbf
+    name: SVM-rbf-C1.0
+    num_runs: 10
+extra:
+    in_use_features:
+    - gyro-x
+    - gyro-y
+    - gyro-z
+    reduce_on: all
+    scale_on: train
+reducer:
+    algorithm: umap
+    kwargs:
+        n_components: 8
+    name: umap-8
+reducer_dataset:
+- kuhar.standartized_intra_balanced[train]
+- kuhar.standartized_intra_balanced[validation]
+- realworld.standartized_intra_balanced[train]
+- realworld.standartized_intra_balanced[validation]
+scaler:
+    algorithm: MinMaxScaler
+    kwargs: null
+    name: MinMaxScaler
+test_dataset:
+- kuhar.standartized_intra_balanced[test]
+train_dataset:
+- kuhar.standartized_intra_balanced[train]
+- kuhar.standartized_intra_balanced[validation]
+transforms:
+-   kwargs:
+        centered: true
+    name: FFT-centered
+    transform: fft
+    windowed:
+        fit_on: null
+        transform_on: window
+version: '1.0'

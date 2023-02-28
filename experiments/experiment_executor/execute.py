@@ -3,8 +3,6 @@ import argparse
 import logging
 import sys
 import time
-import warnings
-from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List
@@ -29,6 +27,7 @@ from librep.datasets.multimodal import (
 from librep.metrics.report import ClassificationReport
 from librep.utils.workflow import MultiRunWorkflow, SimpleTrainEvalWorkflow
 from ray.util.multiprocessing import Pool
+from utils import catchtime, load_yaml, get_sys_info, multimodal_multi_merge
 
 """This module is used to execute the experiments based on configuration files,
 written in YAML. The configuration files are writen in YAML and the valid keys 
@@ -68,46 +67,6 @@ The code is divided into four main parts:
 
 # Uncomment to remove warnings
 # warnings.filterwarnings("always")
-
-class catchtime:
-    """Utilitary class to measure time in a `with` python statement."""
-
-    def __enter__(self):
-        self.t = time.time()
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.e = time.time()
-
-    def __float__(self):
-        return float(self.e - self.t)
-
-    def __coerce__(self, other):
-        return (float(self), other)
-
-    def __str__(self):
-        return str(float(self))
-
-    def __repr__(self):
-        return str(float(self))
-
-
-def load_yaml(path: PathLike) -> dict:
-    """Utilitary function to load a YAML file.
-
-    Parameters
-    ----------
-    path : PathLike
-        The path to the YAML file.
-
-    Returns
-    -------
-    dict
-        A dictionary with the YAML file content.
-    """
-    path = Path(path)
-    with path.open("r") as f:
-        return yaml.load(f, Loader=yaml.CLoader)
 
 
 def load_datasets(
@@ -269,10 +228,14 @@ def do_transform(
             transforms.append(the_transform)
             if keep_suffixes:
                 new_names.append(transform_config.name)
+        
+        new_name_prefix = ".".join(new_names)
+        if new_name_prefix:
+            new_name_prefix += "."
 
         # Instantiate the TransformMultiModalDataset with the list of transforms
         transformer = TransformMultiModalDataset(
-            transforms=transforms, new_window_name_prefix=".".join(new_names)
+            transforms=transforms, new_window_name_prefix=new_name_prefix
         )
         # Apply the transforms to the dataset
         dset = transformer(dset)
@@ -288,7 +251,7 @@ def do_reduce(
     datasets: List[MultiModalDataset],
     reducer_config: ReducerConfig,
     reduce_on: str = "all",
-    suffix: str = "reduced.",
+    suffix: str = "reduced",
 ) -> List[MultiModalDataset]:
     """Utilitary function to perform dimensionality reduce to a list of
     datasets. The first dataset will be used to fit the reducer. And the
@@ -331,6 +294,8 @@ def do_reduce(
     if len(datasets) < 2:
         raise ValueError("At least two datasets are required to reduce")
 
+    sensor_names = ["accel", "gyro"]
+
     # Get the reducer kwargs
     kwargs = reducer_config.kwargs or {}
     if reduce_on == "all":
@@ -355,9 +320,54 @@ def do_reduce(
         datasets = [transformer(dataset) for dataset in datasets[1:]]
         return datasets
 
-    elif reduce_on == "axis":
-        raise NotImplementedError(f"Reduce_on: {reduce_on} not implemented yet")
-    elif reduce_on == "sensor":
+    elif reduce_on == "sensor" or reduce_on == "axis":
+        if reduce_on == "axis":
+            window_names = datasets[0].window_names
+        else:
+            window_names = [
+                [w for w in datasets[0].window_names if s in w] for s in sensor_names
+            ]
+            window_names = [w for w in window_names if w]
+
+        window_datasets = []
+
+
+        # Loop over the windows
+        for i, wname in enumerate(window_names):
+            # Get the reducer class and instantiate it using the kwargs
+            reducer = reducers_cls[reducer_config.algorithm](**kwargs)
+            # Fit the reducer on the first dataset
+            reducer_window = datasets[0].windows(wname)
+            reducer.fit(reducer_window[:][0])
+            # Instantiate the WindowedTransform with fit_on=None and
+            # transform_on="all", i.e. the transform will be applied to
+            # whole dataset.
+            transform = WindowedTransform(
+                transform=reducer,
+                fit_on=None,
+                transform_on="all",
+            )
+            # Instantiate the TransformMultiModalDataset with the list of transforms
+            # and the new suffix
+            transformer = TransformMultiModalDataset(
+                transforms=[transform], new_window_name_prefix=f"{suffix}-{i}"
+            )
+            # Apply the transform to the remaining datasets
+            _window_datasets = []
+            for dataset in datasets[1:]:
+                dset_window = dataset.windows(wname)
+                dset_window = transformer(dset_window)
+                _window_datasets.append(dset_window)
+            window_datasets.append(_window_datasets)
+
+        # Merge dataset windows
+        datasets = [
+            multimodal_multi_merge([dataset[i] for dataset in window_datasets])
+            for i in range(len(window_datasets[0]))
+        ]
+        return datasets
+            
+
         raise NotImplementedError(f"Reduce_on: {reduce_on} not implemented yet")
     else:
         raise ValueError(
@@ -502,16 +512,13 @@ def run_experiment(
     ValueError
         If the reducer is specified but the reducer_dataset is not specified.
     """
-    # Some sanity checks
-    if (
-        config_to_execute.reducer is not None
-        and config_to_execute.reducer_dataset is None
-    ):
-        raise ValueError(
-            "If reducer is specified, reducer_dataset must be specified as well"
-        )
-
     experiment_output_file = Path(experiment_output_file)
+
+    if config_version != config_to_execute.version:
+        raise ValueError(
+            f"Config version ({config_to_execute.version}) "
+            f"does not match the current version ({config_version})"
+        )
 
     # Useful variables
     additional_info = dict()
@@ -572,7 +579,7 @@ def run_experiment(
 
     with catchtime() as reduce_time:
         # Is there any reducer to do?
-        if config_to_execute.reducer is not None:
+        if config_to_execute.reducer is not None and reducer_dset is not None:
             train_dset, test_dset = do_reduce(
                 datasets=[reducer_dset, train_dset, test_dset],
                 reducer_config=config_to_execute.reducer,
@@ -606,37 +613,39 @@ def run_experiment(
         #     display_labels=labels,
     )
 
+    all_results = []
+
     # Create Simple Workflow
-    workflow = SimpleTrainEvalWorkflow(
-        estimator=estimator_cls[config_to_execute.estimator.algorithm],
-        estimator_creation_kwags=config_to_execute.estimator.kwargs or {},
-        do_not_instantiate=False,
-        do_fit=True,
-        evaluator=reporter,
-    )
+    for estimator_cfg in config_to_execute.estimators:
+        results = dict()
 
-    # Create a multi execution workflow
-    num_runs = (
-        config_to_execute.extra.estimator_runs
-        if not config_to_execute.extra.estimator_deterministic
-        else 1
-    )
-    runner = MultiRunWorkflow(workflow=workflow, num_runs=num_runs)
+        workflow = SimpleTrainEvalWorkflow(
+            estimator=estimator_cls[estimator_cfg.algorithm],
+            estimator_creation_kwags=estimator_cfg.kwargs or {},
+            do_not_instantiate=False,
+            do_fit=True,
+            evaluator=reporter,
+        )
 
-    with catchtime() as classification_time:
-        results = runner(train_dset, test_dset)
-    additional_info["classification_time"] = float(classification_time)
+        # Create a multi execution workflow
+        runner = MultiRunWorkflow(workflow=workflow, num_runs=estimator_cfg.num_runs)
+        with catchtime() as classification_time:
+            results["results"] = runner(train_dset, test_dset)
+
+        results["classification_time"] = float(classification_time)
+        results["estimator"] = asdict(estimator_cfg)
+        all_results.append(results)
 
     end_time = time.time()
     additional_info["total_time"] = end_time - start_time
     additional_info["start_time"] = start_time
     additional_info["end_time"] = end_time
-    additional_info["num_runs"] = num_runs
+    additional_info["system"] = get_sys_info()
 
     # ----------- 6. Save results ------------
     values = {
         "experiment": asdict(config_to_execute),
-        "results": results,
+        "report": all_results,
         "additional": additional_info,
     }
 
@@ -668,24 +677,29 @@ def run_wrapper(args) -> dict:
     output_dir: Path = Path(args[1])
     yaml_config_file: Path = Path(args[2])
     experiment_id = yaml_config_file.stem
-    result = dict()
+    result = None
     try:
         # Load config
         config = from_dict(data_class=ExecutionConfig, data=load_yaml(yaml_config_file))
         # Create output file
         experiment_output_file = output_dir / f"{experiment_id}.yaml"
-        logging.info(f"Starting execution {experiment_id}. Output at {experiment_output_file}")
+        logging.info(
+            f"Starting execution {experiment_id}. Output at {experiment_output_file}"
+        )
 
         # Run experiment
         result = run_experiment(dataset_locations, experiment_output_file, config)
     except Exception as e:
-        logging.exception("Error while running experiment!")
+        logging.exception(f"Error while running experiment: {yaml_config_file}")
     finally:
         return result
 
 
 def run_single_thread(
-    args: Any, dataset_locations: Dict[str, PathLike], execution_config_files: List[PathLike], output_path: PathLike
+    args: Any,
+    dataset_locations: Dict[str, PathLike],
+    execution_config_files: List[PathLike],
+    output_path: PathLike,
 ):
     """Runs the experiments sequentially, without parallelization.
 
@@ -700,11 +714,19 @@ def run_single_thread(
     output_path : PathLike
         Output path where the results will be stored.
     """
+    results = []
     for e in tqdm.tqdm(execution_config_files, desc="Executing experiments"):
-        run_wrapper((dataset_locations, output_path, e))
+        r = run_wrapper((dataset_locations, output_path, e))
+        results.append(r)
+    return results
 
 
-def run_ray(args: Any, dataset_locations: Dict[str, PathLike], execution_config_files: List[PathLike], output_path: PathLike):
+def run_ray(
+    args: Any,
+    dataset_locations: Dict[str, PathLike],
+    execution_config_files: List[PathLike],
+    output_path: PathLike,
+):
     """Runs the experiments in parallel, using Ray.
 
     Parameters
@@ -719,16 +741,25 @@ def run_ray(args: Any, dataset_locations: Dict[str, PathLike], execution_config_
         Output path where the results will be stored.
     """
     ray.init(args.address)
-    pool = Pool()
-    iterator = pool.imap(
-        run_wrapper,
-        [(dataset_locations, output_path, e) for e in execution_config_files],
-    )
-    final_res = list(
-        tqdm.tqdm(
-            iterator, total=len(execution_config_files), desc="Executing experiments"
-        )
-    )
+    remote_func = ray.remote(run_wrapper)
+    futures = [
+        remote_func.remote((dataset_locations, output_path, e))
+        for e in execution_config_files
+    ]
+    ready, not_ready = ray.wait(futures, num_returns=len(futures))
+
+    
+    # pool = Pool()
+    # iterator = pool.imap(
+    #     run_wrapper,
+    #     [(dataset_locations, output_path, e) for e in execution_config_files],
+    # )
+    # results = list(
+    #     tqdm.tqdm(
+    #         iterator, total=len(execution_config_files), desc="Executing experiments"
+    #     )
+    # )
+    return ready
 
 
 if __name__ == "__main__":
@@ -750,7 +781,9 @@ if __name__ == "__main__":
         "--run-name",
         action="store",
         default="execution",
-        help="Description of the experiment run",
+        help="Name of the execution run. It will create a folder inside output dir "
+        + "with this name and results will be placed inside. "
+        + "Useful to run multiple executions with different configurations",
         type=str,
     )
 
@@ -770,7 +803,7 @@ if __name__ == "__main__":
         help="Dataset locations YAML file",
         type=str,
         required=False,
-        default="./dataset_locations.yaml"
+        default="./dataset_locations.yaml",
     )
 
     parser.add_argument(
@@ -783,7 +816,9 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--ray", action="store_true", help="Run using ray (parallel/distributed execution)"
+        "--ray",
+        action="store_true",
+        help="Run using ray (parallel/distributed execution)",
     )
 
     parser.add_argument(
@@ -879,10 +914,19 @@ if __name__ == "__main__":
         # Run single
         if not args.ray:
             logging.warning("Running in single mode! (slow)")
-            run_single_thread(args, dataset_locations, execution_config_files, output_path)
+            results = run_single_thread(
+                args, dataset_locations, execution_config_files, output_path
+            )
         else:
-            run_ray(args, dataset_locations, execution_config_files, output_path)
-    print(f"Finished! It took {float(total_time):.4f} seconds!")
+            results = run_ray(
+                args, dataset_locations, execution_config_files, output_path
+            )
+            # ray.shutdown()
 
-    # Return OK
-    sys.exit(0)
+    if None in results:
+        logging.error("Finished with errors!")
+        print(f"\tFinished with errors! It took {float(total_time):.4f} seconds!")
+        sys.exit(1)
+    else:
+        print(f"\tFinished without errors! It took {float(total_time):.4f} seconds!")
+        sys.exit(0)
