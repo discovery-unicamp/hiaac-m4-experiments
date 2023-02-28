@@ -185,6 +185,9 @@ def only_raw_view(df):
 results_file = Path("results.csv")
 results = pd.read_csv(results_file).fillna("")
 
+results[(results["umap components"] == 0) & (results["transforms"] == "")] == 360
+results[(results["umap components"] == 0) & (results["transforms"] == "FFT-centered")] == 180
+
 # Preprocess the results
 results = rename_datasets(results)
 results = add_view_name(results)
@@ -297,10 +300,10 @@ def improvement_over_baseline(classifier, dataset, domain):
     for (estimator, transform, dataset_name), subdf in df.groupby(
         ["estimator", "transforms", "train_datasets"]
     ):
-        subdf = subdf[
-            ~(subdf["reducer_datasets"] == "")
-            | (subdf["umap components"] == 0)
-        ]
+        # subdf = subdf[
+        #     ~(subdf["reducer_datasets"] == "")
+        #     | (subdf["umap components"] == 0)
+        # ]
         subdf = subdf.sort_values("umap components")
         transform = transform if transform else 'Time'
         fig.add_trace(
@@ -326,7 +329,6 @@ def improvement_over_baseline(classifier, dataset, domain):
         xaxis_title="UMAP components",
         yaxis_title="Accuracy (mean 10 runs)",
         yaxis_range=[0, 100],
-        # xaxis_range=[2, 21],
         xaxis = dict(
             tickmode = 'linear',
         ),
