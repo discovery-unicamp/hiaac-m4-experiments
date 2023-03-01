@@ -49,8 +49,8 @@ class SplitGuaranteeingAllClassesPerSplit:
 
     def __call__(self, dataframe: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         random.seed(self.random_state)
-        split_values = dataframe[self.column_to_split].unique()
-        class_values = dataframe[self.class_column].unique()
+        split_values = dataframe[self.column_to_split].unique() # user ids
+        class_values = dataframe[self.class_column].unique() # activity codes
 
         for _ in range(self.retries):
             random.shuffle(split_values)
@@ -75,30 +75,43 @@ class BalanceToMinimumClass:
     def __init__(
         self,
         class_column: str = "standard activity code",
+        filter_column: str = "user",
         random_state: int = 42,
         min_value: int = None,
     ):
         self.class_column = class_column
         self.random_state = random_state
         self.min_value = min_value
+        self.filter_column = filter_column
 
     def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         class_values = dataframe[self.class_column].unique()
         min_value_size = self.min_value
+
+        # First we need to filter the dataframe to only have filter column values that are present in all classes
+        filter_values = dataframe[self.filter_column].unique()
+        filter_values_to_use = []
+
+        for filter_value in filter_values:
+            if sorted(dataframe[dataframe[self.filter_column] == filter_value][self.class_column].unique()) == sorted(class_values):
+                filter_values_to_use.append(filter_value)
+        df = dataframe[dataframe[self.filter_column].isin(filter_values_to_use)].copy()
         
+        # Now we can balance the dataframe
         if self.min_value is None:
             min_value_size = min(
                 [
-                    len(dataframe.loc[dataframe[self.class_column] == class_value])
+                    len(df.loc[(df[self.class_column] == class_value) & (df[self.filter_column] == filter_value)])
                     for class_value in class_values
+                    for filter_value in filter_values_to_use
                 ]
             )
         balanced_df = pd.concat(
             [
-                dataframe.loc[dataframe[self.class_column] == class_value].sample(
+                df.loc[(df[self.class_column] == class_value) & (df[self.filter_column] == filter_value)].sample(
                     min_value_size, random_state=self.random_state
                 )
-                for class_value in class_values
+                for class_value in class_values for filter_value in filter_values_to_use
             ]
         )
         return balanced_df
