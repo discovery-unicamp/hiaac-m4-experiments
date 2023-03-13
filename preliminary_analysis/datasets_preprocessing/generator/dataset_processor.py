@@ -129,8 +129,10 @@ class BalanceToMinimumClass:
 
     def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         class_values = dataframe[self.class_column].unique()
-        if self.min_value is None:
-            self.min_value = min(
+        min_valuse_size = self.min_value
+
+        if min_valuse_size is None:
+            min_valuse_size = min(
                 [
                     len(dataframe.loc[dataframe[self.class_column] == class_value])
                     for class_value in class_values
@@ -139,7 +141,7 @@ class BalanceToMinimumClass:
         balanced_df = pd.concat(
             [
                 dataframe.loc[dataframe[self.class_column] == class_value].sample(
-                    self.min_value, random_state=self.random_state
+                    min_valuse_size, random_state=self.random_state
                 )
                 for class_value in class_values
             ]
